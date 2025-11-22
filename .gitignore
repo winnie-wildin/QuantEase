@@ -1,0 +1,125 @@
+# QuantEase - Git Ignore File
+
+# ===== ENVIRONMENT & SECRETS =====
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+
+# ===== PYTHON =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ===== VIRTUAL ENVIRONMENTS =====
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# ===== IDE =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ===== JUPYTER NOTEBOOKS =====
+.ipynb_checkpoints
+*.ipynb
+
+# ===== TESTING =====
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# ===== DATABASE =====
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+postgres_data/
+
+# ===== MODELS & DATA =====
+# Large model files (download separately)
+backend/data/models/quantized/*.gguf
+backend/data/models/quantized/*.bin
+backend/data/models/quantized/*.safetensors
+
+# User uploaded files
+backend/data/uploads/*
+!backend/data/uploads/.gitkeep
+
+# ===== DOCKER =====
+docker-compose.override.yml
+*.log
+
+# ===== CELERY =====
+celerybeat-schedule
+celerybeat.pid
+
+# ===== FRONTEND (React) =====
+node_modules/
+frontend/build/
+frontend/dist/
+.cache/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ===== LOGS =====
+*.log
+logs/
+*.out
+
+# ===== BACKUPS =====
+*.sql
+*.dump
+backup_*.sql
+
+# ===== TEMPORARY FILES =====
+*.tmp
+*.temp
+.cache/
+
+# ===== OS =====
+Thumbs.db
+.DS_Store
+.Spotlight-V100
+.Trashes
+
+# ===== ALEMBIC =====
+# Don't ignore migrations, but ignore generated files
+alembic/__pycache__/
+alembic/versions/__pycache__/
+
+# ===== KEEP STRUCTURE =====
+# Keep empty directories with .gitkeep files
+!**/.gitkeep
+
+
+backend/data/models/quantized/*.gguf

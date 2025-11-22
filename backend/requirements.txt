@@ -1,0 +1,63 @@
+# QuantEase Backend - Python Dependencies
+# Python 3.10+
+
+# ===== WEB FRAMEWORK =====
+fastapi
+uvicorn[standard]
+python-multipart      # File uploads
+pydantic
+pydantic-settings
+
+# ===== DATABASE =====
+sqlalchemy
+psycopg2-binary         # PostgreSQL adapter
+alembic                # Database migrations
+
+# ===== ASYNC TASKS =====
+celery
+redis
+
+# ===== AI/ML INFERENCE =====
+groq                    # Groq API client for baseline
+llama-cpp-python         # GGUF model inference
+
+# ===== EVALUATION METRICS =====
+bert-score             # BERTScore for semantic similarity
+sentence-transformers # Sentence embeddings
+torch                     # Required by transformers
+transformers            # HuggingFace transformers
+scikit-learn           # Cosine similarity, etc.
+
+# ===== DATA PROCESSING =====
+numpy
+pandas             # Data manipulation (optional but useful)
+
+# ===== UTILITIES =====
+python-dotenv          # Environment variables
+python-jose[cryptography] # JWT tokens (if adding auth)
+passlib[bcrypt]          # Password hashing (if adding auth)
+python-json-logger       # Structured logging
+
+# ===== TESTING =====
+pytest
+pytest-asyncio
+httpx               # Async HTTP client for testing
+
+# ===== CODE QUALITY =====
+black                  # Code formatter
+flake8          # Linter
+mypy                 # Type checking
+
+# ===== MONITORING (Optional) =====
+# prometheus-client==0.19.0      # Metrics
+# python-json-logger==2.0.7      # Structured logging
+
+# ===== NOTES =====
+# For ARM/M1 Macs, you may need to install llama-cpp-python with:
+# CMAKE_ARGS="-DLLAMA_METAL=on" pip install llama-cpp-python
+#
+# For CUDA support (NVIDIA GPUs):
+# CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install llama-cpp-python
+#
+# For CPU-only (default):
+# pip install llama-cpp-python

@@ -1,0 +1,153 @@
+
+services:
+  # ===== POSTGRESQL DATABASE =====
+  postgres:
+    image: postgres:15-alpine
+    container_name: quantease_postgres
+    environment:
+      POSTGRES_DB: model_optimizer
+      POSTGRES_USER: optimizer_user
+      POSTGRES_PASSWORD: optimizer_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U optimizer_user -d model_optimizer"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - quantease_network
+
+  # ===== REDIS (Celery Broker) =====
+  redis:
+    image: redis:7-alpine
+    container_name: quantease_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - quantease_network
+
+  # ===== FASTAPI BACKEND =====
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: quantease_backend
+    environment:
+      - DATABASE_URL=postgresql://optimizer_user:optimizer_pass@postgres:5432/model_optimizer
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - QUANTIZED_MODELS_PATH=/app/data/models/quantized
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - ./backend/data:/app/data  
+      - upload_data:/app/data/uploads           # User uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "
+        echo 'Waiting for database...' &&
+        alembic upgrade head &&
+        echo 'Starting FastAPI server...' &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      "
+    networks:
+      - quantease_network
+
+  # ===== CELERY WORKER =====
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: quantease_celery_worker
+    environment:
+      - DATABASE_URL=postgresql://optimizer_user:optimizer_pass@postgres:5432/model_optimizer
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - QUANTIZED_MODELS_PATH=/app/data/models/quantized
+    volumes:
+      - ./backend:/app
+      - ./backend/data:/app/data  
+      - upload_data:/app/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A app.tasks.celery_app worker --loglevel=info --pool=solo
+    networks:
+      - quantease_network
+
+  # ===== CELERY FLOWER (Optional - Monitoring) =====
+  # Uncomment to enable Celery task monitoring UI
+  # flower:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #   container_name: quantease_flower
+  #   environment:
+  #     - CELERY_BROKER_URL=redis://redis:6379/0
+  #     - CELERY_RESULT_BACKEND=redis://redis:6379/0
+  #   ports:
+  #     - "5555:5555"
+  #   depends_on:
+  #     - redis
+  #   command: celery -A app.tasks.celery_app flower --port=5555
+  #   networks:
+  #     - quantease_network
+
+# ===== VOLUMES =====
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  model_data:
+    driver: local
+  upload_data:
+    driver: local
+
+# ===== NETWORKS =====
+networks:
+  quantease_network:
+    driver: bridge
+
+# ===== USAGE =====
+# 
+# Start all services:
+#   docker-compose up -d
+#
+# View logs:
+#   docker-compose logs -f backend
+#   docker-compose logs -f celery_worker
+#
+# Stop all services:
+#   docker-compose down
+#
+# Stop and remove volumes:
+#   docker-compose down -v
+#
+# Rebuild containers:
+#   docker-compose up -d --build
+#
+# Run migrations:
+#   docker-compose exec backend alembic upgrade head
+#
+# Access database:
+#   docker-compose exec postgres psql -U optimizer_user -d model_optimizer
