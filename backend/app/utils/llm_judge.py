@@ -29,7 +29,7 @@ class LLMJudge:
             raise ValueError("Groq API key required for LLM Judge")
         
         self.client = Groq(api_key=self.api_key)
-        self.judge_model = "gpt-oss-120b"
+        self.judge_model = "openai/gpt-oss-120b"
     
     def sample_data(
         self,
@@ -111,7 +111,8 @@ Respond ONLY with a JSON object:
                 model=self.judge_model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
-                max_tokens=300
+                max_tokens=300,
+                reasoning_effort="medium"
             )
             
             import json
@@ -175,7 +176,8 @@ Respond ONLY with a JSON object:
                 model=self.judge_model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
-                max_tokens=300
+                max_tokens=300,
+                reasoning_effort="medium"
             )
             
             import json
