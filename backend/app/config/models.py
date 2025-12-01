@@ -79,3 +79,44 @@ def get_groq_model(model_id: str):
 def get_quantized_model(model_id: str):
     """Get quantized model config by ID"""
     return next((m for m in QUANTIZED_MODELS if m["id"] == model_id), None)
+
+# Task-specific model recommendations
+MODEL_RECOMMENDATIONS = {
+    "text_generation": {
+        "model_id": "llama-3.3-70b-versatile",
+        "display_name": "Llama 3.3 70B",
+        "reason": "Best for reasoning and long-form content generation",
+        "provider": "groq"
+    },
+    "classification": {
+        "model_id": "llama-3.1-8b-instant",
+        "display_name": "Llama 3.1 8B",
+        "reason": "Efficient and accurate for classification tasks",
+        "provider": "groq"
+    },
+    "rag": {
+        "model_id": "llama-3.3-70b-versatile",
+        "display_name": "Llama 3.3 70B",
+        "reason": "Excellent at understanding context and extracting answers",
+        "provider": "groq"
+    }
+}
+
+
+def get_recommendation(task_type: str):
+    """Get recommended model for task type"""
+    return MODEL_RECOMMENDATIONS.get(task_type)
+
+
+
+
+
+
+
+
+
+
+
+
+
+

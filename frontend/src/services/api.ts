@@ -1,11 +1,14 @@
+// frontend/src/services/api.ts
 import type { Experiment, ModelVariant, ComparativeMetrics } from '../types';
 
 const API_BASE_URL = 'http://localhost:8000';
+
 interface UploadSamplesResponse {
   message: string;
   sample_count: number;
   has_ground_truth: boolean;
-  ground_truth_count: number;
+  task_type: string;
+  metadata: any;
 }
 
 export const api = {
@@ -15,6 +18,7 @@ export const api = {
     if (!response.ok) throw new Error('Failed to fetch experiments');
     return response.json();
   },
+
   deleteExperiment: async (experimentId: number) => {
     const response = await fetch(`${API_BASE_URL}/experiments/${experimentId}`, {
       method: 'DELETE',
@@ -73,15 +77,22 @@ export const api = {
     return response.json();
   },
 
-  // Samples
-  uploadSamples: async (experimentId: number, samples: any[]): Promise<UploadSamplesResponse> => {
+  // Samples - UPDATED with task_type
+  uploadSamples: async (
+    experimentId: number, 
+    samples: any[], 
+    taskType: string
+  ): Promise<UploadSamplesResponse> => {
     const response = await fetch(`${API_BASE_URL}/experiments/${experimentId}/samples`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(samples),
+      body: JSON.stringify({
+        samples,
+        task_type: taskType  // ← Added task_type
+      }),
     });
     if (!response.ok) throw new Error('Failed to upload samples');
-    return response.json();  // ← Make sure this returns the JSON!
+    return response.json();
   },
 
   // Generation
@@ -92,11 +103,17 @@ export const api = {
     if (!response.ok) throw new Error('Failed to trigger generation');
   },
 
-  // Evaluation
-  triggerEvaluation: async (experimentId: number): Promise<void> => {
-    const response = await fetch(`${API_BASE_URL}/experiments/${experimentId}/evaluate`, {
-      method: 'POST',
-    });
+  triggerEvaluation: async (
+    experimentId: number,
+    enableLLMJudge: boolean = false
+  ): Promise<void> => {
+    const response = await fetch(
+      `${API_BASE_URL}/experiments/${experimentId}/evaluate?enable_llm_judge=${enableLLMJudge}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
     if (!response.ok) throw new Error('Failed to trigger evaluation');
   },
 };

@@ -1,3 +1,4 @@
+#app/routers/experiments.py
 """
 Experiments API Router
 Handles experiment CRUD and generation triggers
@@ -13,7 +14,7 @@ from app.models import (
 from pydantic import BaseModel
 from datetime import datetime
 import json
-
+from app.utils.json_normalizer import JSONNormalizer
 router = APIRouter(prefix="/experiments", tags=["experiments"])
 
 
@@ -36,6 +37,8 @@ class ExperimentResponse(BaseModel):
     progress: int
     created_at: datetime
     updated_at: datetime | None = None
+    task_type: str | None = None
+
 
     class Config:
         from_attributes = True
@@ -83,6 +86,7 @@ class MetricsResponse(BaseModel):
     output_divergence_score: float | None
     samples_evaluated: int
     evaluation_status: str
+    evaluation_results: dict | None = None
 
     class Config:
         from_attributes = True
@@ -133,64 +137,98 @@ async def get_experiment(experiment_id: int, db: Session = Depends(get_db)):
     if not exp:
         raise HTTPException(status_code=404, detail="Experiment not found")
     return exp
+from pydantic import BaseModel
 
+# Add this Pydantic model at the top (after other imports)
+class SamplesUploadRequest(BaseModel):
+    samples: List[dict]
+    task_type: str
 
+# Then UPDATE the endpoint signature (around line 143):
 @router.post("/{experiment_id}/samples")
 async def upload_samples(
     experiment_id: int,
-    samples: List[dict],
+    data: SamplesUploadRequest,  # ✅ Accept JSON body as model
     db: Session = Depends(get_db)
 ):
-    """Upload test samples for an experiment"""
+    print(f"📥 Received request: task_type={data.task_type}, samples count={len(data.samples)}")
+    
+    """Upload test samples for an experiment with task-aware normalization"""
     exp = db.query(Experiment).filter(Experiment.id == experiment_id).first()
     if not exp:
         raise HTTPException(status_code=404, detail="Experiment not found")
     
-    # Check if samples have ground truth
-    has_ground_truth = False
-    ground_truth_count = 0
+    # Access data from the model
+    task_type = data.task_type
+    samples = data.samples
     
+    # Validate task type
+    valid_task_types = ['text_generation', 'classification', 'rag']
+    if task_type not in valid_task_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid task_type. Must be one of: {valid_task_types}"
+        )
+    
+    # Normalize JSON based on task type
+    try:
+        normalized_data, metadata = JSONNormalizer.normalize_by_task(samples, task_type)
+        print(f"✅ Normalization successful: {metadata}")
+    except Exception as e:
+        print(f"❌ Normalization failed: {str(e)}")
+        import traceback
+        traceback.print_exc()  # Print full stack trace
+        raise HTTPException(
+            status_code=400,
+            detail=f"JSON normalization failed: {str(e)}"
+        )
+    
+    # Create dataset samples
     created_samples = []
-    for i, sample_data in enumerate(samples):
-        input_text = sample_data.get('input_text')
-        ground_truth = sample_data.get('ground_truth_output')
-        
-        if not input_text:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Sample {i+1}: Missing 'input_text' field"
-            )
-        
-        # Track ground truth
-        if ground_truth and ground_truth.strip():
-            ground_truth_count += 1
-            has_ground_truth = True
-        
+    for i, sample_data in enumerate(normalized_data):
         sample = DatasetSample(
             experiment_id=experiment_id,
             position=i,
-            input_text=input_text,
-            ground_truth_output=ground_truth if ground_truth else None
+            input_text=sample_data['input'],
+            ground_truth_output=sample_data.get('output') or sample_data.get('label'),
+            context=sample_data.get('context')  # Only for RAG tasks
         )
         db.add(sample)
         created_samples.append(sample)
     
-    # Update experiment with ground truth info
-    exp.has_ground_truth = has_ground_truth
+    # Updated experiment with task-aware metadata
+    exp.task_type = task_type
+    exp.normalization_metadata = metadata
+    exp.has_ground_truth = metadata['has_ground_truth']
     exp.sample_count = len(created_samples)
+    
+    # Extract and store labels for classification tasks
+    if task_type == 'classification':
+        from app.utils.task_prompt_builder import TaskPromptBuilder
+        try:
+            labels = TaskPromptBuilder.extract_labels_from_samples(samples)
+            exp.detected_labels = labels  # Store as list in JSON field
+            print(f"🏷️  Detected {len(labels)} labels: {labels}")
+        except Exception as e:
+            print(f"⚠️  Could not extract labels: {e}")
+            exp.detected_labels = []
+    else:
+        exp.detected_labels = None
     
     db.commit()
     
-    print(f"✅ Uploaded {len(created_samples)} samples")
-    print(f"📊 Ground truth: {ground_truth_count}/{len(created_samples)} samples")
+    print(f"✅ Uploaded {len(created_samples)} samples for {task_type} task")
+    print(f"📊 Has ground truth: {metadata['has_ground_truth']}")
+    if task_type == 'classification' and 'class_statistics' in metadata:
+        print(f"📊 Classes detected: {metadata['class_statistics']['num_classes']}")
     
     return {
         "message": f"Uploaded {len(created_samples)} samples",
+        "task_type": task_type,
         "sample_count": len(created_samples),
-        "has_ground_truth": has_ground_truth,
-        "ground_truth_count": ground_truth_count
+        "has_ground_truth": metadata['has_ground_truth'],
+        "metadata": metadata
     }
-
 @router.post("/{experiment_id}/variants", response_model=VariantResponse)
 async def create_variant(
     experiment_id: int,
@@ -218,43 +256,6 @@ async def create_variant(
     return new_variant
 
 
-# @router.post("/{experiment_id}/generate")
-# async def trigger_generation(
-#     experiment_id: int,
-#     db: Session = Depends(get_db)
-# ):
-#     """Trigger generation for all variants in experiment"""
-#     from app.tasks.baseline_generation import generate_baseline_outputs
-#     from app.tasks.quantized_generation import generate_quantized_outputs
-    
-#     exp = db.query(Experiment).filter(Experiment.id == experiment_id).first()
-#     if not exp:
-#         raise HTTPException(status_code=404, detail="Experiment not found")
-    
-#     variants = db.query(ModelVariant).filter(
-#         ModelVariant.experiment_id == experiment_id
-#     ).all()
-    
-#     if not variants:
-#         raise HTTPException(status_code=400, detail="No variants found")
-    
-#     # Trigger generation tasks
-#     tasks = []
-#     for variant in variants:
-#         if variant.variant_type == "baseline":
-#             task = generate_baseline_outputs.delay(experiment_id, variant.id)
-#         else:
-#             task = generate_quantized_outputs.delay(experiment_id, variant.id)
-#         tasks.append({"variant_id": variant.id, "task_id": task.id})
-    
-#     exp.status = "generating"
-#     db.commit()
-    
-#     return {
-#         "message": "Generation started",
-#         "experiment_id": experiment_id,
-#         "tasks": tasks
-#     }
 @router.post("/{experiment_id}/generate")
 async def trigger_generation(
     experiment_id: int,
@@ -348,10 +349,15 @@ async def delete_experiment(experiment_id: int, db: Session = Depends(get_db)):
 @router.post("/{experiment_id}/evaluate")
 async def trigger_evaluation(
     experiment_id: int,
+    enable_llm_judge: bool = False,  # NEW: Optional LLM judge
     db: Session = Depends(get_db)
 ):
     """Trigger evaluation for all variants"""
     from app.tasks.evaluation_task import evaluate_variant
+    
+    exp = db.query(Experiment).filter(Experiment.id == experiment_id).first()
+    if not exp:
+        raise HTTPException(status_code=404, detail="Experiment not found")
     
     variants = db.query(ModelVariant).filter(
         ModelVariant.experiment_id == experiment_id,
@@ -361,126 +367,22 @@ async def trigger_evaluation(
     if not variants:
         raise HTTPException(status_code=400, detail="No completed variants found")
     
+    # Pass enable_llm_judge to evaluation task
     tasks = []
     for variant in variants:
-        task = evaluate_variant.delay(variant.id)
+        task = evaluate_variant.delay(
+            variant.id,
+            enable_llm_judge=enable_llm_judge or exp.judge_enabled  # Use experiment setting if not specified
+        )
         tasks.append({"variant_id": variant.id, "task_id": task.id})
     
     return {
         "message": "Evaluation started",
+        "experiment_id": experiment_id,
+        "llm_judge_enabled": enable_llm_judge or exp.judge_enabled,
         "tasks": tasks
     }
-# @router.get("/{experiment_id}/samples/comparison")
-# async def get_sample_comparison(
-#     experiment_id: int,
-#     page: int = 1,
-#     page_size: int = 20,
-#     db: Session = Depends(get_db)
-# ):
-#     """Get side-by-side comparison of all samples with outputs"""
-#     from app.utils.similarity_calculator import SimilarityCalculator
-    
-#     exp = db.query(Experiment).filter(Experiment.id == experiment_id).first()
-#     if not exp:
-#         raise HTTPException(status_code=404, detail="Experiment not found")
-    
-#     # Get all samples
-#     samples = db.query(DatasetSample).filter(
-#         DatasetSample.experiment_id == experiment_id
-#     ).order_by(DatasetSample.position).all()
-    
-#     # Get variants (baseline optional)
-#     baseline = db.query(ModelVariant).filter(
-#         ModelVariant.experiment_id == experiment_id,
-#         ModelVariant.variant_type == "baseline"
-#     ).first()
-    
-#     quantized_variants = db.query(ModelVariant).filter(
-#         ModelVariant.experiment_id == experiment_id,
-#         ModelVariant.variant_type == "quantized"
-#     ).all()
-    
-#     # Build comparison data
-#     comparison_data = []
-#     sim_calc = SimilarityCalculator()
-    
-#     for sample in samples:
-#         sample_data = {
-#             "sample_id": sample.id,
-#             "position": sample.position,
-#             "input_text": sample.input_text,
-#             "ground_truth": sample.ground_truth_output,
-#             "baseline_output": None,
-#             "baseline_latency": None,
-#             "quantized_outputs": []
-#         }
-        
-#         # Get baseline output if exists
-#         if baseline:
-#             baseline_output = db.query(GeneratedOutput).filter(
-#                 GeneratedOutput.sample_id == sample.id,
-#                 GeneratedOutput.variant_id == baseline.id
-#             ).first()
-            
-#             if baseline_output:
-#                 sample_data["baseline_output"] = baseline_output.output_text
-#                 sample_data["baseline_latency"] = baseline_output.latency_ms
-        
-#         # Get quantized outputs
-#         for quant_variant in quantized_variants:
-#             quant_output = db.query(GeneratedOutput).filter(
-#                 GeneratedOutput.sample_id == sample.id,
-#                 GeneratedOutput.variant_id == quant_variant.id
-#             ).first()
-            
-#             if quant_output:
-#                 # Calculate similarity (against ground truth or baseline)
-#                 reference = sample.ground_truth_output if exp.has_ground_truth else sample_data["baseline_output"]
-#                 similarity_score = None
-                
-#                 if reference and quant_output.output_text:
-#                     try:
-#                         similarity_score = sim_calc.calculate_single(
-#                             quant_output.output_text,
-#                             reference
-#                         )
-#                     except:
-#                         similarity_score = None
-                
-#                 sample_data["quantized_outputs"].append({
-#                     "variant_id": quant_variant.id,
-#                     "model_name": quant_variant.model_name,
-#                     "output_text": quant_output.output_text,
-#                     "latency_ms": quant_output.latency_ms,
-#                     "similarity_score": similarity_score
-#                 })
-        
-#         comparison_data.append(sample_data)
-    
-#     # Sort by worst similarity
-#     def get_worst_similarity(item):
-#         scores = [q["similarity_score"] for q in item["quantized_outputs"] if q["similarity_score"] is not None]
-#         return min(scores) if scores else 1.0
-    
-#     comparison_data.sort(key=get_worst_similarity)
-    
-#     # Paginate
-#     total = len(comparison_data)
-#     start = (page - 1) * page_size
-#     end = start + page_size
-#     paginated_data = comparison_data[start:end]
-    
-#     return {
-#         "experiment_id": experiment_id,
-#         "has_ground_truth": exp.has_ground_truth,
-#         "has_baseline": baseline is not None,
-#         "quantized_count": len(quantized_variants),
-#         "total_samples": total,
-#         "page": page,
-#         "page_size": page_size,
-#         "total_pages": (total + page_size - 1) // page_size,
-#         "samples": paginated_data
-#     }
+
 @router.get("/{experiment_id}/samples/comparison")
 async def get_sample_comparison(
     experiment_id: int,
@@ -606,3 +508,35 @@ async def list_quantized_models():
     from app.config.models import QUANTIZED_MODELS
     return {"models": QUANTIZED_MODELS}
 
+@router.get("/models/recommendations/{task_type}")
+async def get_model_recommendations(task_type: str):
+    """Get recommended baseline model for task type"""
+    
+    recommendations = {
+        "text_generation": {
+            "model_name": "llama-3.3-70b",
+            "display_name": "Llama 3.3 70B",
+            "reason": "Best for reasoning and long-form content generation",
+            "provider": "groq"
+        },
+        "classification": {
+            "model_name": "llama-3.1-8b",
+            "display_name": "Llama 3.1 8B", 
+            "reason": "Efficient and accurate for classification tasks",
+            "provider": "groq"
+        },
+        "rag": {
+            "model_name": "llama-3.3-70b",
+            "display_name": "Llama 3.3 70B",
+            "reason": "Excellent at understanding context and extracting answers",
+            "provider": "groq"
+        }
+    }
+    
+    if task_type not in recommendations:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid task type. Must be one of: {list(recommendations.keys())}"
+        )
+    
+    return recommendations[task_type]

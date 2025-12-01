@@ -1,3 +1,4 @@
+#app/models/comparative_metrics.py
 """
 ComparativeMetrics model - Stores evaluation results for each model variant.
 
@@ -7,7 +8,7 @@ Contains three types of metrics:
 3. Comparative vs baseline: BERTScore, cosine similarity (quality preservation)
 """
 
-from sqlalchemy import Column, Integer, Float, DateTime, ForeignKey, String
+from sqlalchemy import Column, Integer, Float, DateTime, ForeignKey, String, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.models.base import Base
@@ -130,6 +131,13 @@ class ComparativeMetrics(Base):
     samples_evaluated = Column(Integer, default=0)
     # Number of samples successfully evaluated
     # Should match experiment.sample_count when complete
+
+    evaluation_results = Column(JSON, nullable=True)
+    # Stores task-specific evaluation results as JSON
+    # Schema varies by task type:
+    # - text_generation: {"bertscore_f1": 87.5, "length_ratio": 0.98, ...}
+    # - classification: {"accuracy": 92.3, "macro_f1": 89.1, ...}
+    # - rag: {"answer_relevance": 85.2, "llm_judge": {...}, ...}
     
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())

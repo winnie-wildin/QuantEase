@@ -1,20 +1,13 @@
+
+#app/models/experiment.py
 """
 Updated Experiment model - Core experiment tracking with comparative evaluation support.
-
-CHANGES FROM ORIGINAL:
-1. Added: has_ground_truth field
-2. Added: generate_baseline field (for user choice)
-3. Updated: status field with more granular states
-4. Added: variants relationship (ModelVariant)
-5. Added: metrics relationship (ComparativeMetrics)
-6. Removed: baseline_metrics relationship (replaced by metrics)
 """
 
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, JSON, Float
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.models.base import Base
-
 
 class Experiment(Base):
     """
@@ -55,6 +48,24 @@ class Experiment(Base):
     
     # User choices
     generate_baseline = Column(Boolean, nullable=True)
+    # ===== NEW FIELDS FOR TASK-AWARE EVALUATION =====
+    
+    task_type = Column(String(50), nullable=True)
+    # Task type: 'text_generation', 'classification', or 'rag'
+    # Determines which metrics to calculate
+    
+    normalization_metadata = Column(JSON, nullable=True)
+    # Stores info about JSON normalization:
+    # {"original_input_key": "prompt", "has_ground_truth": true, ...}
+    
+    judge_enabled = Column(Boolean, default=False)
+    # Whether to use LLM judge for evaluation (costs money)
+    detected_labels = Column(JSON, nullable=True)
+    # Detected classification labels (e.g., ["positive", "negative", "neutral"])
+    # Only populated for classification tasks
+    
+    judge_sample_percentage = Column(Float, default=10.0)
+    # Percentage of samples to judge (default 10%)
     # User's choice on baseline generation:
     # - null: Not yet decided (or not applicable)
     # - True: Generate baseline via Groq API
@@ -143,3 +154,13 @@ class Experiment(Base):
             if variant.variant_type == 'baseline':
                 return variant
         return None
+   
+    @property
+    def task_display_name(self):
+        """Get user-friendly task type name"""
+        task_names = {
+            'text_generation': 'Text Generation',
+            'classification': 'Classification',
+            'rag': 'RAG / Q&A'
+        }
+        return task_names.get(self.task_type, 'Unknown')

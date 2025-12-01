@@ -1,3 +1,4 @@
+#app/utils/prompt_formatter.py
 """
 Prompt Formatter - Model-specific prompt templates
 Different models expect different formats for best results

@@ -1,3 +1,4 @@
+#app/utils/gguf_loader.py
 """
 GGUF Model Loader - Loads and runs quantized GGUF models locally.
 Uses llama-cpp-python for fast CPU/GPU inference with quantized models.

@@ -68,12 +68,46 @@ def generate_quantized_outputs(self, experiment_id: int, variant_id: int):
                 print(f"📝 Sample {i+1}/{total_samples} (ID: {sample.id})")
                 print(f"{'='*60}")
                 
-                # Use raw input text — formatter handles prompt formatting now
-                print(f"📥 Input: {sample.input_text[:100]}...")
+                # Build task-specific prompt
+                from app.utils.task_prompt_builder import TaskPromptBuilder
+                
+                task_prompt = sample.input_text  # Default to raw input
+                
+                # Build task-aware prompt if we have task metadata
+                if experiment.task_type:
+                    try:
+                        if experiment.task_type == "classification":
+                            labels = experiment.detected_labels or []
+                            if labels:
+                                task_prompt = TaskPromptBuilder.build(
+                                    task_type="classification",
+                                    input_text=sample.input_text,
+                                    labels=labels
+                                )
+                                print(f"🏷️  Using classification prompt with labels: {labels}")
+                        
+                        elif experiment.task_type == "rag":
+                            task_prompt = TaskPromptBuilder.build(
+                                task_type="rag",
+                                input_text=sample.input_text,
+                                context=sample.context or ""
+                            )
+                            print(f"🔍 Using RAG prompt with context")
+                        
+                        elif experiment.task_type == "text_generation":
+                            task_prompt = TaskPromptBuilder.build(
+                                task_type="text_generation",
+                                input_text=sample.input_text
+                            )
+                    except Exception as e:
+                        print(f"⚠️  Task prompt building failed, using raw input: {e}")
+                        task_prompt = sample.input_text
+                
+                print(f"📥 Input: {task_prompt[:100]}...")
                 
                 # Generate (formatter handles prompt formatting automatically)
                 result = loader.generate(
-                    prompt=sample.input_text,  # Raw prompt - loader will format it
+                    prompt=task_prompt,  # ✅ Use task-aware prompt
                     max_tokens=256,
                     temperature=0.7
                 )

@@ -1,3 +1,4 @@
+#app/tasks/baseline_generation.py
 """
 Celery task for baseline generation using Groq API.
 Generates outputs for all samples in an experiment using the baseline model.
@@ -77,6 +78,42 @@ def generate_baseline_outputs(self, experiment_id: int, variant_id: int):
                 print(f"📥 Input: {sample.input_text[:100]}...")
                 
                 # Build messages with optional system message
+                # Build task-specific prompt
+                from app.utils.task_prompt_builder import TaskPromptBuilder
+                
+                task_prompt = sample.input_text  # Default to raw input
+                
+                # Build task-aware prompt if we have task metadata
+                if experiment.task_type:
+                    try:
+                        if experiment.task_type == "classification":
+                            labels = experiment.detected_labels or []
+                            if labels:
+                                task_prompt = TaskPromptBuilder.build(
+                                    task_type="classification",
+                                    input_text=sample.input_text,
+                                    labels=labels
+                                )
+                                print(f"🏷️  Using classification prompt with labels: {labels}")
+                        
+                        elif experiment.task_type == "rag":
+                            task_prompt = TaskPromptBuilder.build(
+                                task_type="rag",
+                                input_text=sample.input_text,
+                                context=sample.context or ""
+                            )
+                            print(f"🔍 Using RAG prompt with context")
+                        
+                        elif experiment.task_type == "text_generation":
+                            task_prompt = TaskPromptBuilder.build(
+                                task_type="text_generation",
+                                input_text=sample.input_text
+                            )
+                    except Exception as e:
+                        print(f"⚠️  Task prompt building failed, using raw input: {e}")
+                        task_prompt = sample.input_text
+                
+                # Build messages with optional system message
                 messages = []
                 if system_message:
                     messages.append({
@@ -85,7 +122,7 @@ def generate_baseline_outputs(self, experiment_id: int, variant_id: int):
                     })
                 messages.append({
                     "role": "user",
-                    "content": sample.input_text
+                    "content": task_prompt  # ✅ Use task-aware prompt
                 })
                 
                 # Generate using Groq API

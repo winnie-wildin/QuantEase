@@ -1,3 +1,4 @@
+#app/utils/similarity_calculator.py
 """
 Similarity Calculator - Cosine similarity and embeddings
 Uses sentence transformers for semantic similarity

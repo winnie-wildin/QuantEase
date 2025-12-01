@@ -1,13 +1,6 @@
+#app/models/dataset_sample.py
 """
 Updated DatasetSample model - Stores input samples and optional ground truth.
-
-CHANGES FROM ORIGINAL:
-1. Renamed: input → input_text (more explicit)
-2. Renamed: expected_output → ground_truth_output (matches terminology)
-3. Removed: generated_output field (moved to GeneratedOutput table)
-4. Removed: is_selected field (not needed in new design)
-5. Added: position field (for maintaining order)
-6. Added: generated_outputs relationship (one-to-many)
 """
 
 from sqlalchemy import Column, Integer, Text, DateTime, ForeignKey
@@ -50,6 +43,10 @@ class DatasetSample(Base):
     # Expected output from uploaded dataset (if provided)
     # Example: "Artificial intelligence is..."
     # Will be null if dataset only contains inputs
+    context = Column(Text, nullable=True)
+    # Retrieved context for RAG tasks
+    # Only used when task_type = 'rag'
+    # Example: "France is in Europe. Paris is its capital."
     
     position = Column(Integer, nullable=False)
     # Position in the dataset (0-indexed)

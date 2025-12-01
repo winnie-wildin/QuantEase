@@ -1,0 +1,235 @@
+[
+  {
+    "input_text": "What is the primary purpose of a Bloom filter?",
+    "context": "A Bloom filter is a probabilistic data structure used to test whether an element is a member of a set. It uses multiple hash functions to map elements into a fixed-size bit array. Bloom filters can produce false positives but never false negatives, making them useful in systems where quick membership checks matter more than perfect accuracy, such as caching, distributed databases, and blockchain networks.",
+    "ground_truth_output": "Fast probabilistic membership testing with possible false positives but no false negatives."
+  },
+  {
+    "input_text": "What does the Large Hadron Collider primarily accelerate?",
+    "context": "The LHC, located at CERN, is the world’s largest and highest-energy particle accelerator. It accelerates beams of charged particles, specifically protons and sometimes lead ions, to near-light speeds using superconducting magnets cooled to 1.9 Kelvin. These beams are then collided to study fundamental particles.",
+    "ground_truth_output": "Protons (and sometimes heavy ions)."
+  },
+  {
+    "input_text": "In linguistics, what is a 'morpheme'?",
+    "context": "A morpheme is the smallest grammatical unit that carries meaning in a language. Unlike a syllable, which is a phonological unit, a morpheme contributes semantic content or grammatical function. Examples include 'un-', 'dog', or '-s'.",
+    "ground_truth_output": "The smallest meaningful grammatical unit in language."
+  },
+  {
+    "input_text": "What problem does the Raft algorithm solve?",
+    "context": "Raft is a consensus algorithm designed for distributed systems. It ensures that replicated state machines remain consistent across multiple nodes even in the presence of failures. Raft provides leader election, log replication, and membership changes, offering an easier-to-understand alternative to Paxos.",
+    "ground_truth_output": "Distributed consensus in replicated systems."
+  },
+  {
+    "input_text": "What is the purpose of a Fourier transform?",
+    "context": "The Fourier transform converts a time-domain signal into its frequency-domain components. This decomposition allows engineers and scientists to analyze periodicity, filter signals, and compress data. It is fundamental in image processing, audio engineering, and quantum mechanics.",
+    "ground_truth_output": "Converting signals from time domain to frequency domain."
+  },
+
+  {
+    "input_text": "What does CRISPR-Cas9 enable scientists to do?",
+    "context": "CRISPR-Cas9 is a gene-editing technology derived from bacterial immune systems. It allows researchers to cut DNA at precise locations and modify genetic sequences. This has applications in disease treatment, agriculture, and synthetic biology, though it raises ethical debates.",
+    "ground_truth_output": "Precisely edit DNA sequences."
+  },
+  {
+    "input_text": "What is the Chandrasekhar limit?",
+    "context": "The Chandrasekhar limit is the maximum mass (~1.4 solar masses) that a white dwarf star can have before electron degeneracy pressure fails to prevent gravitational collapse. If exceeded, the star becomes a neutron star or triggers a Type Ia supernova.",
+    "ground_truth_output": "About 1.4 solar masses — the max mass of a stable white dwarf."
+  },
+  {
+    "input_text": "In computer architecture, what is a 'branch predictor'?",
+    "context": "Modern CPUs use branch predictors to guess the outcome of conditional instructions before they are executed. This reduces pipeline stalls and keeps instruction-level parallelism high. Advanced predictors use pattern history tables and machine-learning style heuristics.",
+    "ground_truth_output": "A CPU feature that predicts branch outcomes to avoid pipeline stalls."
+  },
+  {
+    "input_text": "What does an accelerometer measure?",
+    "context": "Accelerometers are sensors that detect changes in velocity or acceleration along one or more axes. They are used in smartphones for orientation, in vehicles for stability systems, and in wearables for tracking movement.",
+    "ground_truth_output": "Acceleration."
+  },
+  {
+    "input_text": "What is a Turing machine?",
+    "context": "A Turing machine is a theoretical computational model composed of an infinite tape, a head that reads/writes symbols, and a set of rules. It represents the foundation of modern computing and defines what it means for a function to be 'computable'.",
+    "ground_truth_output": "A theoretical model of computation using an infinite tape and read/write rules."
+  },
+
+  {
+    "input_text": "What is the purpose of Kubernetes ReplicaSets?",
+    "context": "In Kubernetes, a ReplicaSet ensures that a specified number of identical pod replicas are running at all times. If a pod crashes, the ReplicaSet replaces it. Deployments use ReplicaSets internally to achieve rolling updates.",
+    "ground_truth_output": "To maintain a stable number of running pod replicas."
+  },
+  {
+    "input_text": "What phenomenon does the Doppler effect describe?",
+    "context": "The Doppler effect refers to the change in frequency of a wave relative to an observer moving toward or away from the source. It is observed in sound, light, and electromagnetic waves and is used in radar, astronomy, and medical imaging.",
+    "ground_truth_output": "Frequency shift due to relative motion of source and observer."
+  },
+  {
+    "input_text": "What does a piezoelectric material do?",
+    "context": "Piezoelectric materials generate an electric charge when mechanical stress is applied. They also deform when exposed to an electric field. Applications include microphones, quartz watches, and ultrasonic sensors.",
+    "ground_truth_output": "Converts mechanical stress into electrical charge (and vice versa)."
+  },
+  {
+    "input_text": "What is a 'null hypothesis' in statistics?",
+    "context": "The null hypothesis (H0) states that there is no effect or no difference between variables being studied. Statistical tests evaluate whether the observed data is unlikely under H0, allowing researchers to reject or fail to reject it.",
+    "ground_truth_output": "A default claim that there is no effect or difference."
+  },
+  {
+    "input_text": "What is a bytecode interpreter?",
+    "context": "In programming languages like Python and Java, source code is compiled to bytecode — a compact, platform-independent intermediate representation. A bytecode interpreter executes this bytecode instruction by instruction, providing portability across hardware.",
+    "ground_truth_output": "A system that executes platform-independent bytecode instructions."
+  },
+
+  {
+    "input_text": "What is the purpose of a quenching agent in metallurgy?",
+    "context": "Quenching involves rapidly cooling hot metal (usually steel) by immersing it in oil, water, or air. A quenching agent determines cooling speed and affects hardness, brittleness, and grain structure of the final alloy.",
+    "ground_truth_output": "To rapidly cool metal and control hardness and grain structure."
+  },
+  {
+    "input_text": "What does the term 'refractive index' describe?",
+    "context": "The refractive index of a material describes how much it bends (refracts) light passing through it. It is the ratio of the speed of light in a vacuum to the speed in the material. Higher index means stronger bending.",
+    "ground_truth_output": "How much a material bends light."
+  },
+  {
+    "input_text": "What is a hypervisor used for?",
+    "context": "A hypervisor, or virtual machine monitor, enables multiple operating systems to share hardware resources on the same physical machine. Type 1 hypervisors run directly on hardware, while Type 2 run on a host OS.",
+    "ground_truth_output": "Running and managing virtual machines."
+  },
+  {
+    "input_text": "In neuroscience, what is synaptic pruning?",
+    "context": "Synaptic pruning is the brain’s process of removing weaker synaptic connections while strengthening frequently used ones. It occurs heavily during childhood and adolescence and shapes cognitive development.",
+    "ground_truth_output": "Elimination of weaker synapses to strengthen neural pathways."
+  },
+  {
+    "input_text": "What is the goal of the Alpha-Beta pruning algorithm?",
+    "context": "Alpha-Beta pruning is an optimization of the minimax algorithm used in game-playing AI. It reduces the number of explored nodes by eliminating branches that cannot influence the final decision, improving efficiency without affecting correctness.",
+    "ground_truth_output": "To skip evaluation of irrelevant branches in minimax search."
+  },
+
+  {
+    "input_text": "What is a quasar?",
+    "context": "Quasars are extremely luminous active galactic nuclei powered by supermassive black holes. As matter accretes onto the black hole, enormous energy is released across the electromagnetic spectrum, making quasars visible from billions of light-years away.",
+    "ground_truth_output": "An extremely luminous active galactic nucleus powered by a supermassive black hole."
+  },
+  {
+    "input_text": "In chemistry, what is an amphoteric substance?",
+    "context": "An amphoteric substance can act as both an acid and a base depending on the reaction. Water is a classic example, as it can donate or accept a proton. Metal oxides like zinc oxide are also amphoteric.",
+    "ground_truth_output": "A substance that can act as both an acid and a base."
+  },
+  {
+    "input_text": "What does DNS caching do?",
+    "context": "DNS caching stores the results of previous domain name lookups on a local device or server. This reduces lookup time, speeds up website access, and reduces load on DNS resolvers.",
+    "ground_truth_output": "Stores DNS lookups to speed up future queries."
+  },
+  {
+    "input_text": "What is the purpose of RNA polymerase?",
+    "context": "RNA polymerase is an enzyme that synthesizes RNA from a DNA template during transcription. It binds to promoter sequences, unwinds DNA, and constructs complementary RNA strands.",
+    "ground_truth_output": "Synthesizing RNA from a DNA template."
+  },
+  {
+    "input_text": "What does an IMU measure?",
+    "context": "An Inertial Measurement Unit (IMU) is a sensor module that measures linear acceleration, angular velocity, and sometimes magnetic field orientation. It is used in drones, robotics, VR devices, and spacecraft for motion tracking.",
+    "ground_truth_output": "Acceleration and angular velocity (sometimes orientation)."
+  },
+
+  {
+    "input_text": "What is a memristor?",
+    "context": "A memristor is a type of passive electrical component whose resistance depends on the history of voltage and current that passed through it. It 'remembers' its previous state without power, making it a candidate for neuromorphic computing.",
+    "ground_truth_output": "A resistor that retains memory of past voltage/current."
+  },
+  {
+    "input_text": "What field uses the Schrödinger equation?",
+    "context": "The Schrödinger equation is the foundational equation of quantum mechanics. It describes how the quantum state of a physical system evolves over time, governing wave functions of particles.",
+    "ground_truth_output": "Quantum mechanics."
+  },
+  {
+    "input_text": "What is a fractal?",
+    "context": "A fractal is a complex geometric shape that exhibits self-similarity at multiple scales. Fractals appear in nature (coastlines, broccoli), computer graphics, and chaos theory.",
+    "ground_truth_output": "A self-similar geometric structure at multiple scales."
+  },
+  {
+    "input_text": "What does a load balancer do?",
+    "context": "A load balancer distributes traffic across multiple servers to prevent overload, maximize performance, and ensure system reliability. It can work at Layer 4 (transport) or Layer 7 (application).",
+    "ground_truth_output": "Distributes traffic across servers."
+  },
+  {
+    "input_text": "What is a Van de Graaff generator used for?",
+    "context": "A Van de Graaff generator uses a moving belt to accumulate electric charge on a metal dome, producing very high voltages. It is used in physics experiments, particle accelerators, and electrostatic demonstrations.",
+    "ground_truth_output": "Generating high electrostatic voltages."
+  },
+
+  {
+    "input_text": "What is the purpose of differential privacy?",
+    "context": "Differential privacy is a mathematical framework that adds controlled noise to data or queries so that individual entries cannot be identified. It is widely used in machine learning, data analysis, and sensitive datasets.",
+    "ground_truth_output": "Protecting individual privacy by adding noise to data or queries."
+  },
+  {
+    "input_text": "What is the Fermi paradox concerned with?",
+    "context": "The Fermi paradox questions why, given the immense size of the universe and high probability of extraterrestrial life, humanity has observed no sign of alien civilizations. Proposed explanations range from technological limitations to simulation hypotheses.",
+    "ground_truth_output": "The contradiction between expectations of alien life and lack of evidence."
+  },
+  {
+    "input_text": "What is a CAM (Content Addressable Memory)?",
+    "context": "Content Addressable Memory retrieves data by content rather than address. It is used in high-speed networking—for example, in routers' MAC address tables and TLB lookup hardware.",
+    "ground_truth_output": "Memory that retrieves data based on content instead of address."
+  },
+  {
+    "input_text": "What does the term 'orbital resonance' refer to?",
+    "context": "Orbital resonance occurs when two orbiting bodies exert periodic gravitational influence on each other, often stabilizing or destabilizing orbits. Examples include Jupiter’s moons Io, Europa, and Ganymede.",
+    "ground_truth_output": "A gravitational synchronization between orbiting bodies."
+  },
+  {
+    "input_text": "What is a pneumatic system powered by?",
+    "context": "Pneumatic systems use compressed air to transmit force and motion. Applications include manufacturing automation, braking systems, and robotics.",
+    "ground_truth_output": "Compressed air."
+  },
+
+  {
+    "input_text": "What is a Hohmann transfer orbit used for?",
+    "context": "A Hohmann transfer orbit is an energy-efficient method of transferring a spacecraft between two circular orbits around the same central body using two engine burns. It is widely used in orbital mechanics.",
+    "ground_truth_output": "Efficiently moving a spacecraft between two circular orbits."
+  },
+  {
+    "input_text": "What is a compiler's lexer responsible for?",
+       "context": "The lexer (lexical analyzer) converts raw source code into a stream of tokens by identifying keywords, identifiers, operators, and literals. It is the first step of a compiler pipeline.",
+    "ground_truth_output": "Converting raw source code into tokens."
+  },
+  {
+    "input_text": "What does the hippocampus primarily control?",
+    "context": "The hippocampus is a brain structure involved in forming, organizing, and storing new memories. It also plays a role in spatial navigation.",
+    "ground_truth_output": "Memory formation and spatial navigation."
+  },
+  {
+    "input_text": "What is the Haber-Bosch process used for?",
+    "context": "The Haber-Bosch process synthesizes ammonia from nitrogen and hydrogen under high pressure and temperature using an iron catalyst. It enabled mass production of fertilizers and drastically increased global food production.",
+    "ground_truth_output": "Industrial ammonia production."
+  },
+  {
+    "input_text": "What is an edge detector used for in computer vision?",
+    "context": "Edge detectors identify boundaries in images by detecting sharp changes in intensity. Algorithms like Sobel, Canny, and Laplacian are used in segmentation, feature extraction, and object detection.",
+    "ground_truth_output": "Detecting boundaries by finding intensity changes in images."
+  },
+
+  {
+    "input_text": "What does an S-box do in cryptography?",
+    "context": "Substitution boxes (S-boxes) are nonlinear functions used in symmetric key algorithms like AES and DES. They map input bits to output bits in a way that ensures confusion, making ciphertext resistant to linear analysis.",
+    "ground_truth_output": "Provides nonlinear substitution to increase cryptographic security."
+  },
+  {
+    "input_text": "What is the purpose of an EEPROM?",
+    "context": "EEPROM stands for Electrically Erasable Programmable Read-Only Memory. It stores small amounts of persistent data in embedded systems and can be rewritten electrically without removing the chip.",
+    "ground_truth_output": "Non-volatile memory that can be electrically rewritten."
+  },
+  {
+    "input_text": "What does a spectrophotometer measure?",
+    "context": "A spectrophotometer measures the intensity of light absorbed by a sample at different wavelengths. It is widely used in chemistry, biology, and material science.",
+    "ground_truth_output": "Light absorption at different wavelengths."
+  },
+  {
+    "input_text": "What are Lagrange points?",
+    "context": "Lagrange points are five positions in space where the gravitational forces of two large bodies (like Earth and Sun) balance the centripetal force felt by a smaller object. They allow spacecraft to 'park' with minimal fuel.",
+    "ground_truth_output": "Stable gravitational balance points between two large bodies."
+  },
+  {
+    "input_text": "What is a heat pump used for?",
+    "context": "Heat pumps transfer heat from a colder area to a warmer area using a refrigeration cycle. They can both heat and cool buildings efficiently.",
+    "ground_truth_output": "Transferring heat to heat or cool a space."
+  }
+]
