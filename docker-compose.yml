@@ -1,4 +1,3 @@
-
 services:
   # ===== POSTGRESQL DATABASE =====
   postgres:
@@ -51,9 +50,13 @@ services:
     ports:
       - "8000:8000"
     volumes:
+      # Development mode: mount code for live reload
       - ./backend:/app
-      - ./backend/data:/app/data  
-      - upload_data:/app/data/uploads           # User uploads
+      - ./backend/data:/app/data
+      - upload_data:/app/data/uploads
+      # Production mode (uncomment and remove above):
+      # - ./backend/data:/app/data
+      # - upload_data:/app/data/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -82,9 +85,13 @@ services:
       - GROQ_API_KEY=${GROQ_API_KEY}
       - QUANTIZED_MODELS_PATH=/app/data/models/quantized
     volumes:
+      # Development mode: mount code for live reload
       - ./backend:/app
-      - ./backend/data:/app/data  
+      - ./backend/data:/app/data
       - upload_data:/app/data/uploads
+      # Production mode (uncomment and remove above):
+      # - ./backend/data:/app/data
+      # - upload_data:/app/data/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -95,7 +102,7 @@ services:
       - quantease_network
 
   # ===== CELERY FLOWER (Optional - Monitoring) =====
-  # Uncomment to enable Celery task monitoring UI
+  # Uncomment to enable Celery task monitoring UI at http://localhost:5555
   # flower:
   #   build:
   #     context: ./backend
@@ -106,6 +113,8 @@ services:
   #     - CELERY_RESULT_BACKEND=redis://redis:6379/0
   #   ports:
   #     - "5555:5555"
+  #   volumes:
+  #     - ./backend:/app
   #   depends_on:
   #     - redis
   #   command: celery -A app.tasks.celery_app flower --port=5555
@@ -140,14 +149,21 @@ networks:
 # Stop all services:
 #   docker-compose down
 #
-# Stop and remove volumes:
+# Stop and remove volumes (deletes data!):
 #   docker-compose down -v
 #
 # Rebuild containers:
-#   docker-compose up -d --build
+#   docker-compose build --no-cache
+#   docker-compose up -d
 #
 # Run migrations:
 #   docker-compose exec backend alembic upgrade head
 #
 # Access database:
 #   docker-compose exec postgres psql -U optimizer_user -d model_optimizer
+#
+# Check container size:
+#   docker images | grep quantease
+#
+# Enter container shell:
+#   docker-compose exec backend bash
