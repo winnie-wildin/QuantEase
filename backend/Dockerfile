@@ -26,7 +26,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # Install llama-cpp-python separately (clean install)
-RUN pip install --no-cache-dir llama-cpp-python
+RUN pip install --no-cache-dir llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
 
 # Copy application code
 COPY . .

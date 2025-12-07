@@ -31,6 +31,10 @@ export const UploadDataset: React.FC = () => {
   const [validation, setValidation] = useState<ValidationResult | null>(null);
   const [uploading, setUploading] = useState(false);
   const [recommendedModel, setRecommendedModel] = useState<any>(null);
+  const [formatWarning, setFormatWarning] = useState<{
+  message: string;
+  suggestedTaskType: TaskType;
+} | null>(null);
 
   // Fetch recommended model when task type changes
   useEffect(() => {
@@ -143,6 +147,29 @@ export const UploadDataset: React.FC = () => {
 
     return result;
   };
+  // Detect task type from data format
+  const detectTaskTypeFromData = (samples: ParsedSample[]): TaskType | null => {
+    if (!samples || samples.length === 0) return null;
+    
+    const first = samples[0];
+    
+    // Check for context field (RAG)
+    if (first.context) {
+      return 'rag';
+    }
+    
+    // Check for short output (Classification)
+    const output = first.ground_truth_output;
+    if (output && typeof output === 'string') {
+      const wordCount = output.trim().split(/\s+/).length;
+      if (wordCount <= 3) {
+        return 'classification';
+      }
+    }
+    
+    // Default to text generation
+    return 'text_generation';
+  };
 
   // Handle file upload
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -160,6 +187,25 @@ export const UploadDataset: React.FC = () => {
       setJsonText(text);
       const result = validateJSON(text);
       setValidation(result);
+      // Check for format mismatch
+      if (result.isValid && result.samples.length > 0) {
+        const detectedType = detectTaskTypeFromData(result.samples);
+        
+        if (detectedType && detectedType !== taskType) {
+          const taskNames: Record<TaskType, string> = {
+            'text_generation': 'Text Generation',
+            'classification': 'Classification',
+            'rag': 'RAG'
+          };
+          
+          setFormatWarning({
+            message: `Your data looks like ${taskNames[detectedType]} format, but you selected ${taskNames[taskType]}!`,
+            suggestedTaskType: detectedType
+          });
+        } else {
+          setFormatWarning(null);
+        }
+      }
     };
     reader.onerror = () => {
       toast.error('Failed to read file');
@@ -173,6 +219,26 @@ export const UploadDataset: React.FC = () => {
     if (text.trim()) {
       const result = validateJSON(text);
       setValidation(result);
+      
+      // ✅ ADD THIS: Same format validation as file upload
+      if (result.isValid && result.samples.length > 0) {
+        const detectedType = detectTaskTypeFromData(result.samples);
+        
+        if (detectedType && detectedType !== taskType) {
+          const taskNames: Record<TaskType, string> = {
+            'text_generation': 'Text Generation',
+            'classification': 'Classification',
+            'rag': 'RAG'
+          };
+          
+          setFormatWarning({
+            message: `Your data looks like ${taskNames[detectedType]} format, but you selected ${taskNames[taskType]}!`,
+            suggestedTaskType: detectedType
+          });
+        } else {
+          setFormatWarning(null);
+        }
+      }
     } else {
       setValidation(null);
     }
@@ -190,7 +256,7 @@ export const UploadDataset: React.FC = () => {
 
     try {
       // Upload samples with task type
-      const result = await api.uploadSamples(experimentId, validation.samples, taskType);
+      await api.uploadSamples(experimentId, validation.samples, taskType);  // ✅ Removed 'const result ='
 
       toast.success(
         `✅ Uploaded ${validation.sampleCount} samples for ${taskType.replace('_', ' ')}`, 
@@ -205,7 +271,7 @@ export const UploadDataset: React.FC = () => {
     } finally {
       setUploading(false);
     }
-  };
+};
 
   // Get example JSON for task type
   const getExampleJSON = () => {
@@ -354,6 +420,58 @@ export const UploadDataset: React.FC = () => {
           </div>
         )}
       </div>
+      {/* Format Mismatch Warning */}
+      {formatWarning && (
+        <div className="card bg-yellow-50 border-2 border-yellow-400">
+          <div className="flex items-start space-x-3">
+            <AlertCircle className="w-6 h-6 text-yellow-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-yellow-900 mb-2">
+                ⚠️ Format Mismatch Detected
+              </h3>
+              <p className="text-sm text-yellow-800 mb-3">
+                {formatWarning.message}
+              </p>
+              <div className="text-sm text-yellow-700 mb-4">
+                <p className="font-medium">Detected format indicators:</p>
+                <ul className="list-disc list-inside mt-1 space-y-1">
+                  {formatWarning.suggestedTaskType === 'rag' && (
+                    <li>Your data contains a "context" field (used in RAG tasks)</li>
+                  )}
+                  {formatWarning.suggestedTaskType === 'classification' && (
+                    <li>Your outputs are short (1-3 words) like classification labels</li>
+                  )}
+                  {formatWarning.suggestedTaskType === 'text_generation' && (
+                    <li>Your outputs are paragraph-length (typical of text generation)</li>
+                  )}
+                </ul>
+              </div>
+              <div className="flex items-center space-x-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTaskType(formatWarning.suggestedTaskType);
+                    setFormatWarning(null);
+                    toast.success(`Switched to ${formatWarning.suggestedTaskType.replace('_', ' ')}`);
+                  }}
+                  className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                >
+                  Switch to {formatWarning.suggestedTaskType === 'rag' ? 'RAG' : 
+                            formatWarning.suggestedTaskType === 'classification' ? 'Classification' : 
+                            'Text Generation'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormatWarning(null)}
+                  className="text-yellow-700 hover:text-yellow-900 text-sm font-medium underline"
+                >
+                  Ignore and continue anyway
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Format Guide */}
       <div className="card bg-blue-50 border-blue-200">

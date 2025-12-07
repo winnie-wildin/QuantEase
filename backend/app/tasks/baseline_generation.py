@@ -51,8 +51,8 @@ def generate_baseline_outputs(self, experiment_id: int, variant_id: int):
         stop_sequences_raw = PromptFormatter.get_stop_sequences_for_api(variant.model_name)
         
         # Filter stop sequences - only send thinking tags to API, not format tokens
-        stop_sequences = [s for s in stop_sequences_raw if '<' not in s or 'think' in s.lower()] if stop_sequences_raw else None
-        
+        # stop_sequences = [s for s in stop_sequences_raw if '<' not in s or 'think' in s.lower()] if stop_sequences_raw else None
+        stop_sequences = None        
         print(f"\n{'='*60}")
         print(f"🚀 Starting baseline generation")
         print(f"📋 Model: {variant.model_name}")
@@ -153,16 +153,27 @@ def generate_baseline_outputs(self, experiment_id: int, variant_id: int):
                     print(f"⚠️  Detected <think> tags in output, cleaning...")
                     parts = output_text.split('</think>')
                     output_text = parts[-1].strip() if len(parts) > 1 else output_text.split('<think>')[0].strip()
-                
+
                 # Remove any stop sequences that leaked through
                 for stop in (stop_sequences or []):
                     if stop in output_text:
                         output_text = output_text.split(stop)[0].strip()
-                
-                # Validate output
-                if not output_text or len(output_text) < 5:
-                    raise ValueError(f"Empty or too short output after cleaning (original: {original_length} chars)")
-                
+
+                # Validate output (task-aware minimum length)
+                # Classification: 3+ chars (single word labels)
+                # RAG/Text Gen: 10+ chars (sentences)
+                min_length = 3 if experiment.task_type == 'classification' else 10
+
+                if not output_text or len(output_text.strip()) < min_length:
+                    error_msg = f"Empty or too short output (original: {original_length} chars, cleaned: {len(output_text)} chars, min: {min_length})"
+                    
+                    # Add context about possible causes
+                    if experiment.task_type == 'text_generation' and sample.context:
+                        error_msg += "\n⚠️ HINT: You have a 'context' field but task_type is 'text_generation'. This is a RAG dataset!"
+                    
+                    print(f"❌ {error_msg}")
+                    raise ValueError(error_msg)
+
                 print(f"📤 Output: {output_text[:150]}...")
                 
                 # Calculate metrics

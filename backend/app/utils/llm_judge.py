@@ -60,6 +60,53 @@ class LLMJudge:
         print(f"   🎲 Sampled {num_samples} of {total_samples} ({sample_percentage}%)")
         
         return sampled_data, sampled_indices
+    def _parse_judge_response(self, response_text: str) -> Dict:
+        """
+        Safely parse LLM judge response, handling markdown and malformed JSON.
+        
+        Args:
+            response_text: Raw response from LLM
+        
+        Returns:
+            Parsed JSON dict or error dict
+        """
+        import json
+        import re
+        
+        try:
+            # Remove markdown code fences
+            cleaned = response_text.strip()
+            if cleaned.startswith("```"):
+                # Extract content between ```json and ```
+                match = re.search(r'```(?:json)?\s*\n(.*?)\n```', cleaned, re.DOTALL)
+                if match:
+                    cleaned = match.group(1)
+                else:
+                    # Just remove the backticks
+                    cleaned = cleaned.replace("```json", "").replace("```", "").strip()
+            
+            # Try to parse
+            result = json.loads(cleaned)
+            return result
+            
+        except json.JSONDecodeError as e:
+            # Try to extract JSON object with regex
+            try:
+                # Find the first complete JSON object in the text
+                match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', response_text, re.DOTALL)
+                if match:
+                    result = json.loads(match.group(0))
+                    return result
+            except:
+                pass
+            
+            print(f"   ⚠️ JSON parse error: {e}")
+            print(f"   📝 Raw response: {response_text[:200]}...")
+            return {"error": f"JSON parse error: {str(e)}"}
+        
+        except Exception as e:
+            print(f"   ⚠️ Unexpected error: {e}")
+            return {"error": str(e)}
     
     def judge_text_generation(
         self,
@@ -111,13 +158,14 @@ Respond ONLY with a JSON object:
                 model=self.judge_model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
-                max_tokens=300,
-                reasoning_effort="medium"
+                max_tokens=600,
+                reasoning_effort="medium",
+                response_format={"type": "json_object"}  # ✅ Force JSON mode
             )
             
             import json
-            result = json.loads(response.choices[0].message.content)
-            return result
+            response_text = response.choices[0].message.content
+            return self._parse_judge_response(response_text)  # ✅ Use robust parser
             
         except Exception as e:
             print(f"   ⚠️ Judge error: {e}")
@@ -176,13 +224,14 @@ Respond ONLY with a JSON object:
                 model=self.judge_model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
-                max_tokens=300,
-                reasoning_effort="medium"
+                max_tokens=600,
+                reasoning_effort="medium",
+                response_format={"type": "json_object"}  # ✅ Force JSON mode
             )
             
             import json
-            result = json.loads(response.choices[0].message.content)
-            return result
+            response_text = response.choices[0].message.content
+            return self._parse_judge_response(response_text)  # ✅ Use robust parser
             
         except Exception as e:
             print(f"   ⚠️ Judge error: {e}")

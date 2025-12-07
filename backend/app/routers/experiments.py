@@ -169,6 +169,33 @@ async def upload_samples(
             status_code=400,
             detail=f"Invalid task_type. Must be one of: {valid_task_types}"
         )
+    # ✅ NEW: Validate data format matches task type
+    if len(samples) > 0:
+        first_sample = samples[0]
+        has_context = 'context' in first_sample
+        has_label_style_output = 'label' in first_sample or (
+            'ground_truth_output' in first_sample and 
+            len(str(first_sample.get('ground_truth_output', '')).split()) <= 3
+        )
+        
+        # Check for mismatches
+        if task_type == 'rag' and not has_context:
+            raise HTTPException(
+                status_code=400,
+                detail="❌ RAG task requires 'context' field in dataset. Your data appears to be text generation format."
+            )
+        
+        if task_type == 'text_generation' and has_context:
+            raise HTTPException(
+                status_code=400,
+                detail="❌ You selected 'Text Generation' but your dataset has 'context' field. This is RAG format! Please select 'RAG' task type instead."
+            )
+        
+        if task_type == 'classification' and has_context:
+            raise HTTPException(
+                status_code=400,
+                detail="❌ Classification task should not have 'context' field. Your data appears to be RAG format."
+            )
     
     # Normalize JSON based on task type
     try:

@@ -106,6 +106,8 @@ class GGUFLoader:
             start_time = time.time()
             
             try:
+                print(f"🔍 DEBUG: Calling llama-cpp-python with max_tokens={max_tokens}")
+                print(f"🔍 DEBUG: Stop sequences: {stop_sequences}")
                 # Generate with model-specific settings
                 output = self.model(
                     formatted_prompt,
@@ -117,6 +119,10 @@ class GGUFLoader:
                     echo=False,
                     stop=stop_sequences  # Model-specific stops
                 )
+                # Add this IMMEDIATELY after generation
+                actual_tokens = output["usage"]["completion_tokens"]
+                print(f"🔍 DEBUG: Model returned {actual_tokens} tokens (requested max: {max_tokens})")
+                print(f"🔍 DEBUG: Finish reason: {output['choices'][0].get('finish_reason')}")
                 
                 end_time = time.time()
                 latency_ms = (end_time - start_time) * 1000

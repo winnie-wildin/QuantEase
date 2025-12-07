@@ -58,7 +58,7 @@ class PromptFormatter:
         
         "qwen": {
             "template": "<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n",
-            "stop_sequences": ["<think>", "</think>"],  # ← Only thinking tags, remove <|im_end|>
+            "stop_sequences": ["<|im_end|>"],  # For local GGUF models
             "description": "Qwen chat format",
             "system_message": "Respond directly and concisely. Do not show your thinking process or use <think> tags."
         },
@@ -125,22 +125,6 @@ class PromptFormatter:
         return formatted
     
     @staticmethod
-    def get_stop_sequences(model_path: str) -> List[str]:
-        """
-        Get stop sequences for the specific model.
-        
-        Args:
-            model_path: Path to model file
-            
-        Returns:
-            List of stop sequences
-        """
-        model_family = PromptFormatter.detect_model_family(model_path)
-        format_config = PromptFormatter.FORMATS.get(model_family, PromptFormatter.FORMATS["default"])
-        
-        return format_config["stop_sequences"]
-    
-    @staticmethod
     def get_system_message(model_name: str):
         """
         Get system message for the specific model.
@@ -158,16 +142,42 @@ class PromptFormatter:
     @staticmethod
     def get_stop_sequences_for_api(model_name: str) -> list:
         """
-        Get stop sequences for API calls (works with model names, not just paths).
+        Get stop sequences for Groq API calls (baseline generation).
+        
+        IMPORTANT: For Qwen models on Groq API, using <think> as a stop sequence
+        causes the API to stop immediately and return empty output because Qwen
+        starts its response with <think>.
+        
+        Therefore, we return None and clean thinking tags in post-processing instead.
         
         Args:
             model_name: Model name (e.g., "qwen/qwen3-32b")
             
         Returns:
+            None (don't use stop sequences for API calls)
+        """
+        # Don't use stop sequences for API - causes empty outputs with Qwen
+        return None
+    
+    @staticmethod
+    def get_stop_sequences(model_path: str) -> list:
+        """
+        Get stop sequences for GGUF local inference (quantized generation).
+        
+        For local GGUF models, stop sequences work properly because the model
+        stops BEFORE outputting the stop token (unlike Groq API which strips it).
+        
+        Args:
+            model_path: Path to GGUF model file
+            
+        Returns:
             List of stop sequences
         """
-        model_family = PromptFormatter.detect_model_family(model_name)
+        model_family = PromptFormatter.detect_model_family(model_path)
         format_config = PromptFormatter.FORMATS.get(model_family, PromptFormatter.FORMATS["default"])
+        
+        # Return the stop sequences from format config
+        # These work fine for local GGUF inference
         return format_config.get("stop_sequences", [])
     
     @staticmethod
@@ -214,15 +224,25 @@ if __name__ == "__main__":
         "llama-3-8b.gguf",
         "mistral-7b-instruct.gguf",
         "qwen/qwen3-32b",
+        "qwen2.5-3b-instruct-q4.gguf",
     ]
+    
+    print("="*80)
+    print("TESTING PROMPT FORMATTER")
+    print("="*80)
     
     for path in test_paths:
         family = PromptFormatter.detect_model_family(path)
         formatted = PromptFormatter.format_prompt("What is AI?", path)
-        stops = PromptFormatter.get_stop_sequences(path)
+        
+        # Test both methods
+        api_stops = PromptFormatter.get_stop_sequences_for_api(path)
+        gguf_stops = PromptFormatter.get_stop_sequences(path)
         sys_msg = PromptFormatter.get_system_message(path)
+        
         print(f"\n{path}:")
         print(f"  Family: {family}")
-        print(f"  Stops: {stops}")
+        print(f"  API stops: {api_stops}")
+        print(f"  GGUF stops: {gguf_stops}")
         print(f"  System: {sys_msg}")
-        print(f"  Formatted: {formatted[:100]}...")
+        print(f"  Formatted: {formatted[:80]}...")
