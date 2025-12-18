@@ -318,29 +318,117 @@ async def trigger_generation(
             task = generate_baseline_outputs.delay(experiment_id, variant.id)
         else:
             task = generate_quantized_outputs.delay(experiment_id, variant.id)
+        # Store task ID in variant for cancellation support
+        variant.celery_task_id = task.id
         tasks.append({"variant_id": variant.id, "task_id": task.id})
     exp.is_draft = False 
     exp.status = "generating"
     db.commit()
     
-    # Check completion
-    import time
-    time.sleep(2)
-    
-    for variant in variants:
-        db.refresh(variant)
-    
-    all_completed = all(v.status == "completed" for v in variants)
-    if all_completed:
-        exp.status = "completed"
-        db.commit()
-    
+    # Return immediately - don't wait for completion
+    # The frontend will poll for status updates
     return {
-        "message": "Generation completed" if all_completed else "Generation started",
+        "message": "Generation started",
         "experiment_id": experiment_id,
         "status": exp.status,
         "has_ground_truth": exp.has_ground_truth,
         "tasks": tasks
+    }
+
+
+@router.get("/{experiment_id}/generation-status")
+async def get_generation_status(
+    experiment_id: int,
+    db: Session = Depends(get_db)
+):
+    """Get real-time generation progress for all variants"""
+    exp = db.query(Experiment).filter(Experiment.id == experiment_id).first()
+    if not exp:
+        raise HTTPException(status_code=404, detail="Experiment not found")
+    
+    variants = db.query(ModelVariant).filter(
+        ModelVariant.experiment_id == experiment_id
+    ).all()
+    
+    # Get total samples
+    total_samples = db.query(DatasetSample).filter(
+        DatasetSample.experiment_id == experiment_id
+    ).count()
+    
+    variant_statuses = []
+    for variant in variants:
+        # Count completed outputs (this is the source of truth - always fresh from DB)
+        # This query always hits the database, so it's always up-to-date
+        completed = db.query(GeneratedOutput).filter(
+            GeneratedOutput.variant_id == variant.id
+        ).count()
+        
+        # Calculate progress from actual completed count (more reliable than variant.progress)
+        # This is the real-time progress based on actual database records
+        actual_progress = completed / total_samples if total_samples > 0 else 0.0
+        
+        # Refresh variant to get latest status
+        db.refresh(variant)
+        
+        # Update variant.progress if it's out of sync (helps keep it accurate for other queries)
+        if abs(variant.progress - actual_progress) > 0.01:  # Only update if significantly different
+            variant.progress = actual_progress
+            db.commit()
+        
+        # Get last 3 completed samples for live preview
+        recent_outputs = db.query(GeneratedOutput).filter(
+            GeneratedOutput.variant_id == variant.id
+        ).order_by(GeneratedOutput.id.desc()).limit(3).all()
+        
+        recent_samples = []
+        for output in recent_outputs:
+            sample = db.query(DatasetSample).filter(
+                DatasetSample.id == output.sample_id
+            ).first()
+            if sample:
+                recent_samples.append({
+                    "position": sample.position,
+                    "output_preview": output.output_text[:80] + "..." if len(output.output_text) > 80 else output.output_text,
+                    "latency_ms": output.latency_ms,
+                    "is_successful": bool(output.is_successful),
+                    "timestamp": output.id  # Use ID as proxy for order
+                })
+        
+        variant_statuses.append({
+            "variant_id": variant.id,
+            "model_name": variant.model_name,
+            "variant_type": variant.variant_type,
+            "status": variant.status,
+            "progress": actual_progress,  # Use calculated progress instead of variant.progress
+            "completed_samples": completed,
+            "total_samples": total_samples,
+            "recent_samples": recent_samples
+        })
+    
+    # Check if all variants are completed, cancelled, or failed
+    all_finished = all(v["status"] in ("completed", "cancelled", "failed") for v in variant_statuses)
+    
+    # Also update experiment status if all variants are finished (fixes stuck experiments)
+    if all_finished and exp.status == "generating":
+        # Determine experiment status based on variant statuses
+        has_cancelled = any(v["status"] == "cancelled" for v in variant_statuses)
+        has_failed = any(v["status"] == "failed" for v in variant_statuses)
+        has_completed = any(v["status"] == "completed" for v in variant_statuses)
+        
+        if has_cancelled:
+            exp.status = "cancelled"
+        elif has_failed and not has_completed:
+            exp.status = "failed"
+        else:
+            exp.status = "completed"
+        db.commit()
+    
+    return {
+        "experiment_id": experiment_id,
+        "experiment_status": exp.status,
+        "total_samples": total_samples,
+        "variants": variant_statuses,
+        "all_completed": all_finished
     }
 
 @router.get("/{experiment_id}/variants", response_model=List[VariantResponse])
@@ -409,6 +497,104 @@ async def trigger_evaluation(
         "llm_judge_enabled": enable_llm_judge or exp.judge_enabled,
         "tasks": tasks
     }
+
+@router.post("/{experiment_id}/cancel-generation")
+async def cancel_generation(
+    experiment_id: int,
+    db: Session = Depends(get_db)
+):
+    """Cancel running generation tasks for an experiment"""
+    from app.tasks.celery_app import celery_app
+    
+    exp = db.query(Experiment).filter(Experiment.id == experiment_id).first()
+    if not exp:
+        raise HTTPException(status_code=404, detail="Experiment not found")
+    
+    # Get all variants that might need cancellation (generating, pending, or stuck)
+    # This handles cases where status might be stuck or inconsistent
+    variants = db.query(ModelVariant).filter(
+        ModelVariant.experiment_id == experiment_id,
+        ModelVariant.status.in_(["generating", "pending"])
+    ).all()
+    
+    if not variants:
+        # Check if there are any variants at all - might already be completed/cancelled
+        all_variants = db.query(ModelVariant).filter(
+            ModelVariant.experiment_id == experiment_id
+        ).all()
+        
+        if not all_variants:
+            raise HTTPException(
+                status_code=404,
+                detail="No variants found for this experiment"
+            )
+        else:
+            # Variants exist but none are in generating/pending state
+            raise HTTPException(
+                status_code=400,
+                detail="No active generation tasks to cancel. All variants are already completed, cancelled, or failed."
+            )
+    
+    cancelled_tasks = []
+    for variant in variants:
+        try:
+            # First set status to cancelled (so task can check and exit gracefully)
+            variant.status = "cancelled"
+            variant.error_message = "Generation cancelled by user"
+            
+            # Try to revoke the task if we have a task ID
+            if variant.celery_task_id:
+                try:
+                    # Revoke the task (terminate=True will kill running task)
+                    celery_app.control.revoke(variant.celery_task_id, terminate=True)
+                    variant.celery_task_id = None
+                except Exception as e:
+                    print(f"Error revoking task {variant.celery_task_id}: {e}")
+                    # Continue anyway - status is already set to cancelled
+            else:
+                # No task ID (old stuck task) - just mark as cancelled
+                print(f"Variant {variant.id} has no celery_task_id, marking as cancelled anyway")
+            
+            cancelled_tasks.append(variant.id)
+        except Exception as e:
+            print(f"Error cancelling variant {variant.id}: {e}")
+            # Still mark as cancelled even if there's an error
+            variant.status = "cancelled"
+            variant.error_message = f"Generation cancelled (error: {str(e)})"
+            cancelled_tasks.append(variant.id)
+    
+    # Update experiment status
+    if len(cancelled_tasks) > 0:
+        exp.status = "cancelled"
+        db.commit()
+        
+        return {
+            "message": f"Cancelled generation for {len(cancelled_tasks)} variant(s)",
+            "experiment_id": experiment_id,
+            "cancelled_variants": cancelled_tasks
+        }
+    else:
+        # No variants were cancelled, but let's check if experiment status needs updating
+        all_variants = db.query(ModelVariant).filter(
+            ModelVariant.experiment_id == experiment_id
+        ).all()
+        
+        # If all variants are completed/failed/cancelled, update experiment status
+        if all(v.status in ("completed", "failed", "cancelled") for v in all_variants):
+            if any(v.status == "failed" for v in all_variants) and not any(v.status == "completed" for v in all_variants):
+                exp.status = "failed"
+            elif any(v.status == "cancelled" for v in all_variants):
+                exp.status = "cancelled"
+            else:
+                exp.status = "completed"
+            db.commit()
+        
+        return {
+            "message": "No active generation tasks found. Experiment status updated.",
+            "experiment_id": experiment_id,
+            "experiment_status": exp.status,
+            "cancelled_variants": []
+        }
 
 @router.get("/{experiment_id}/samples/comparison")
 async def get_sample_comparison(

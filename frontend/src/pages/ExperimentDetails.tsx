@@ -9,7 +9,7 @@ import { api } from '../services/api';
 import { StatusBadge } from '../components/StatusBadge';
 import type { Experiment, ModelVariant, ComparativeMetrics } from '../types';
 import { BarChart, Bar, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
-
+import { GenerationProgress } from '../components/GenerationProgress';
 
 
 const renderTaskSpecificMetrics = (
@@ -668,17 +668,18 @@ export const ExperimentDetails: React.FC = () => {
       )}
 
       {isGenerating && (
-        <div className="card bg-yellow-50 border-yellow-200">
-          <div className="flex items-center space-x-3">
-            <Loader2 className="w-5 h-5 animate-spin text-yellow-600" />
-            <div>
-              <p className="text-yellow-800 font-medium">🚀 Generation in progress...</p>
-              <p className="text-sm text-yellow-700 mt-1">
-                This may take 1-3 minutes depending on model size. Page auto-refreshing.
-              </p>
-            </div>
-          </div>
-        </div>
+        <GenerationProgress
+          experimentId={experimentId}
+          onComplete={() => {
+            // Refresh data when generation completes
+            refetchExperiment();
+            refetchVariants();
+            refetchMetrics();
+            
+            // Optionally show a success message
+            toast.success('✅ Generation complete! Ready for evaluation.');
+          }}
+        />
       )}
 
       {/* Evaluation section with LLM judge toggle */}

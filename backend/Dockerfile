@@ -3,31 +3,32 @@ FROM python:3.11-slim as builder
 
 WORKDIR /build
 
-# Install build dependencies
+# Install build dependencies INCLUDING gcc/g++
 RUN apt-get update && apt-get install -y \
     build-essential \
-    cmake \
-    libopenblas-dev \
-    git \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements
 COPY requirements.txt .
 
-# Install packages
+# Install all packages from requirements.txt
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir --prefix=/install -r requirements.txt && \
-    pip install --no-cache-dir --prefix=/install \
-    llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+    pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# Install LATEST llama-cpp-python with CPU optimizations
+# Will use pre-built wheel if available, otherwise build from source
+RUN pip install --no-cache-dir --prefix=/install \
+    --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu \
+    llama-cpp-python
 
 # ===== STAGE 2: Runtime =====
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install runtime dependencies - INCLUDING libgomp1!
+# Install runtime dependencies
 RUN apt-get update && apt-get install -y \
-    libopenblas0 \
     libpq5 \
     libgomp1 \
     && rm -rf /var/lib/apt/lists/*

@@ -71,10 +71,15 @@ class ModelVariant(Base):
     # - 'completed'    → All outputs generated
     # - 'failed'       → Error during generation
     # - 'evaluating'   → Generating comparative metrics
+    # - 'cancelled'    → Generation was cancelled by user
     
     progress = Column(Float, default=0.0)
     # Generation progress: 0.0 to 1.0
     # Used for real-time progress tracking in UI
+    
+    celery_task_id = Column(String(255), nullable=True)
+    # Celery task ID for this variant's generation task
+    # Used to cancel/revoke running tasks
     
     error_message = Column(String(1024), nullable=True)
     # If status='failed', stores error details

@@ -77,11 +77,13 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: quantease_celery_worker
+    # Note: No container_name specified to allow scaling with --scale
+    # Remove container_name if you want to scale workers horizontally
     environment:
       - DATABASE_URL=postgresql://optimizer_user:optimizer_pass@postgres:5432/model_optimizer
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - CELERY_ALWAYS_EAGER=false  # Use async execution via Redis (set to true only for testing)
       - GROQ_API_KEY=${GROQ_API_KEY}
       - QUANTIZED_MODELS_PATH=/app/data/models/quantized
     volumes:
@@ -97,7 +99,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: celery -A app.tasks.celery_app worker --loglevel=info --pool=solo
+    # Use prefork pool for parallel task execution (multiple concurrent tasks)
+    # For single-threaded execution, use --pool=solo instead
+    # Adjust --concurrency based on available CPU cores and memory
+    command: celery -A app.tasks.celery_app worker --loglevel=info --pool=prefork --concurrency=2
     networks:
       - quantease_network
 
@@ -167,3 +172,23 @@ networks:
 #
 # Enter container shell:
 #   docker-compose exec backend bash
+#
+# ===== CELERY PARALLEL EXECUTION =====
+#
+# Scale Celery workers for parallel task execution:
+#   docker-compose up -d --scale celery_worker=3
+#   This creates 3 worker containers, each with --concurrency=2 (total 6 parallel tasks)
+#
+# Monitor Celery tasks (requires Flower service):
+#   1. Uncomment the flower service section above
+#   2. docker-compose up -d flower
+#   3. Open http://localhost:5555
+#
+# Adjust worker concurrency per container:
+#   Edit celery_worker command: --concurrency=4 (for 4 parallel tasks per worker)
+#
+# Test parallel execution:
+#   1. Create an experiment with multiple variants
+#   2. Trigger generation for all variants simultaneously
+#   3. Check logs: docker-compose logs -f celery_worker
+#   4. You should see tasks executing in parallel across workers

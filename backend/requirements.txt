@@ -1,63 +1,48 @@
 # QuantEase Backend - Python Dependencies
-# Python 3.10+
 
 # ===== WEB FRAMEWORK =====
 fastapi
 uvicorn[standard]
-python-multipart      # File uploads
+python-multipart
 pydantic
 pydantic-settings
 
 # ===== DATABASE =====
 sqlalchemy
-psycopg2-binary         # PostgreSQL adapter
-alembic                # Database migrations
+psycopg2-binary
+alembic
 
 # ===== ASYNC TASKS =====
 celery
 redis
 
 # ===== AI/ML INFERENCE =====
-groq                    # Groq API client for baseline
-llama-cpp-python         # GGUF model inference
+groq
+# llama-cpp-python installed separately in Dockerfile
 
-# ===== EVALUATION METRICS =====
-bert-score             # BERTScore for semantic similarity
-sentence-transformers # Sentence embeddings
-torch                     # Required by transformers
-transformers            # HuggingFace transformers
-scikit-learn           # Cosine similarity, etc.
+# ===== EVALUATION METRICS (CPU-only torch!) =====
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
+transformers
+sentence-transformers
+bert-score
+scikit-learn
 
 # ===== DATA PROCESSING =====
 numpy
-pandas             # Data manipulation (optional but useful)
+pandas
 
 # ===== UTILITIES =====
-python-dotenv          # Environment variables
-python-jose[cryptography] # JWT tokens (if adding auth)
-passlib[bcrypt]          # Password hashing (if adding auth)
-python-json-logger       # Structured logging
+python-dotenv
+python-jose[cryptography]
+passlib[bcrypt]
 
 # ===== TESTING =====
 pytest
 pytest-asyncio
-httpx               # Async HTTP client for testing
+httpx
 
 # ===== CODE QUALITY =====
-black                  # Code formatter
-flake8          # Linter
-mypy                 # Type checking
-
-# ===== MONITORING (Optional) =====
-# prometheus-client==0.19.0      # Metrics
-# python-json-logger==2.0.7      # Structured logging
-
-# ===== NOTES =====
-# For ARM/M1 Macs, you may need to install llama-cpp-python with:
-# CMAKE_ARGS="-DLLAMA_METAL=on" pip install llama-cpp-python
-#
-# For CUDA support (NVIDIA GPUs):
-# CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install llama-cpp-python
-#
-# For CPU-only (default):
-# pip install llama-cpp-python
+black
+flake8
+mypy

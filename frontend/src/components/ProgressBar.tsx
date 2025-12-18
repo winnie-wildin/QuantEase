@@ -1,3 +1,4 @@
+// frontend/src/components/ProgressBar.tsx
 import React from 'react';
 
 interface ProgressBarProps {
@@ -17,18 +18,22 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
     yellow: 'bg-yellow-600',
   };
 
+  // Clamp progress between 0 and 100, handle NaN/undefined
+  const safeProgress = Math.max(0, Math.min(100, progress || 0));
+  const displayProgress = isNaN(safeProgress) ? 0 : safeProgress;
+
   return (
     <div className="w-full">
       {label && (
         <div className="flex justify-between text-sm text-gray-600 mb-1">
           <span>{label}</span>
-          <span>{progress.toFixed(0)}%</span>
+          <span>{displayProgress.toFixed(0)}%</span>
         </div>
       )}
       <div className="w-full bg-gray-200 rounded-full h-2">
         <div
           className={`h-2 rounded-full transition-all duration-300 ${colorClasses[color]}`}
-          style={{ width: `${progress}%` }}
+          style={{ width: `${displayProgress}%` }}
         />
       </div>
     </div>

@@ -1,8 +1,8 @@
 #  QuantEase - LLM Quantization Evaluation Platform
 
-**Compare cloud LLMs with locally-quantized models to find the perfect speed-quality-size trade-off.**
+**Compare baseline and quantized LLM models side-by-side to find the perfect speed-quality-size trade-off.**
 
-Quantease helps you evaluate quantized GGUF models against baseline cloud models with comprehensive metrics including performance benchmarks, quality scores (BERTScore), and optional LLM-as-judge evaluation.
+QuantEase helps you evaluate quantized models against baseline models with comprehensive metrics including performance benchmarks, quality scores (BERTScore), and optional LLM-as-judge evaluation.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -21,24 +21,23 @@ Quantease helps you evaluate quantized GGUF models against baseline cloud models
 - [Customization](#-customization)
 - [Troubleshooting](#-troubleshooting)
 - [API Reference](#-api-reference)
-- [Contributing](#-contributing)
 
 ---
 
 ##  Why QuantEase?
 
-**The Problem:** Cloud LLMs are powerful but expensive and slow. Quantized models run locally but you need to know which quantization level maintains acceptable quality.
+**The Problem:** You need to compare quantized models against baseline models to find the perfect speed-quality-size trade-off, but current tools compare cloud vs local models which isn't useful for speed comparisons.
 
 **The Solution:** QuantEase automates the evaluation process:
--  Compare cloud baseline (Groq) vs local quantized models (GGUF)
+-  Compare baseline models vs quantized models side-by-side
 -  Measure quality degradation at different quantization levels
--  Benchmark speed, latency, and model size
+-  Benchmark speed, latency, and model size with fair comparisons
 -  Get actionable insights with visual trade-off analysis
 
 **Use Cases:**
--  Enterprise: Reduce inference costs by 90% while maintaining quality
+-  Enterprise: Find optimal quantization level for cost/quality balance
 -  Research: Evaluate quantization techniques systematically
--  Edge Deployment: Find the smallest model that meets your quality bar
+-  Edge Deployment: Identify models that meet quality requirements
 -  Education: Understand quantization trade-offs hands-on
 
 ---
@@ -62,10 +61,9 @@ Quantease helps you evaluate quantized GGUF models against baseline cloud models
 - Actionable insights and recommendations
 
 ###  Flexible Architecture
-- Any GGUF model from Hugging Face
+- Multiple quantized model formats (GGUF and more coming soon)
 - Multiple quantization levels (INT4, INT8, FP16, etc.)
-- Groq API for baseline (blazing fast)
-- Local llama.cpp for quantized inference
+- Cloud-based inference for fair speed comparisons
 
 ---
 
@@ -100,7 +98,7 @@ open http://localhost:3000
 ### Your First Experiment
 
 1. **Create Experiment:** Click "New Experiment" → Select task type
-2. **Upload Dataset:** Drag-drop JSON/CSV with prompts
+2. **Upload Dataset:** Drag-drop JSON/CSV with prompts, or use preloaded datasets (coming soon)
 3. **Add Models:** Select baseline + quantized variants
 4. **Generate:** Click "Generate Outputs" (2-3 min)
 5. **Evaluate:** Click "Run Evaluation" (1-2 min)
@@ -110,58 +108,24 @@ open http://localhost:3000
 
 ##  Architecture
 
-```
-┌─────────────────┐
-│   Frontend      │  React + TypeScript + TailwindCSS
-│   (Port 3000)   │  
-└────────┬────────┘
-         │ REST API
-┌────────▼────────┐
-│   Backend       │  FastAPI + SQLAlchemy
-│   (Port 8000)   │  
-└────────┬────────┘
-         │
-    ┌────┴─────┬──────────┬──────────┐
-    │          │          │          │
-┌───▼───┐  ┌──▼──┐  ┌────▼────┐  ┌─▼──┐
-│ Celery│  │Redis│  │Postgres │  │Groq│
-│Worker │  │     │  │         │  │API │
-└───┬───┘  └─────┘  └─────────┘  └────┘
-    │
-┌───▼───────────┐
-│ llama.cpp     │  Local GGUF inference
-│ (llama-cpp-   │
-│  python)      │
-└───────────────┘
-```
+**Frontend:** React + TypeScript + TailwindCSS  
+**Backend:** FastAPI + SQLAlchemy + Celery  
+**Database:** PostgreSQL  
+**Task Queue:** Redis + Celery  
+**Infrastructure:** Docker Compose
 
-### Technology Stack
-
-**Backend:**
-- FastAPI - Modern async web framework
-- Celery - Distributed task queue
-- SQLAlchemy - Database ORM
-- llama-cpp-python - GGUF model inference
-- sentence-transformers - BERTScore calculation
-
-**Frontend:**
-- React 18 - UI framework
-- TypeScript - Type safety
-- TailwindCSS - Styling
-- Recharts - Data visualization
-- React Query - Server state management
-
-**Infrastructure:**
-- PostgreSQL - Relational database
-- Redis - Task broker
-- Docker - Containerization
+The platform uses a microservices architecture with async task processing for model inference and evaluation.
 
 ---
 
 ##  Task Types
 
+QuantEase supports multiple task types, each with specialized metrics and evaluation criteria. More granular subcategories coming soon.
+
 ###  Text Generation
 **Use case:** Open-ended generation (summaries, rewrites, creative writing)
+
+**Coming soon:** More specific subcategories like summarization, translation, creative writing, code generation, etc.
 
 **Dataset format:**
 ```json
@@ -183,6 +147,8 @@ open http://localhost:3000
 
 ###  Classification
 **Use case:** Categorization tasks (sentiment, topic, intent)
+
+**Coming soon:** More specific subcategories like sentiment analysis, topic classification, intent detection, entity recognition, etc.
 
 **Dataset format:**
 ```json
@@ -210,6 +176,8 @@ open http://localhost:3000
 
 ###  RAG (Retrieval-Augmented Generation)
 **Use case:** Question answering with context
+
+**Coming soon:** More specific subcategories like document Q&A, knowledge base querying, conversational AI, etc.
 
 **Dataset format:**
 ```json
@@ -329,20 +297,10 @@ input_text,ground_truth_output
 - Recommended: `llama-3.3-70b-versatile` (best quality)
 - Fast option: `llama-3.1-8b-instant` (lower cost)
 
-**Quantized (Local):**
-```python
-# Popular models on Hugging Face
-"bartowski/Qwen2.5-3B-Instruct-GGUF"  # 3B - fast, efficient
-"bartowski/Phi-3-mini-128k-instruct-GGUF"  # 3B - long context
-"TheBloke/Llama-2-7B-Chat-GGUF"  # 7B - classic
-
-# Quantization levels (quality ↓, speed ↑)
-Q8_0   # 8-bit (best quality, largest)
-Q6_K   # 6-bit (great balance)
-Q5_K_M # 5-bit medium (recommended)
-Q4_K_M # 4-bit medium (good speed)
-Q3_K_M # 3-bit medium (smallest)
-```
+**Quantized:**
+- Currently supports GGUF models
+- More quantized model formats coming soon (TensorRT, ONNX, etc.)
+- Multiple quantization levels (INT4, INT8, FP16, etc.)
 
 **Step 4: Generate & Evaluate**
 - Generation: 1-3 minutes depending on dataset size
@@ -413,347 +371,78 @@ Using Groq (as of Dec 2024):
 
 ##  Customization
 
-### Task-Specific Prompts
+You can customize task-specific prompts, model prompt formatting, and evaluation metrics by editing the corresponding utility files in the backend:
 
-Edit `backend/app/utils/task_prompt_builder.py`:
-
-```python
-# Example: Custom classification prompt
-CLASSIFICATION_PROMPT = """
-You are a sentiment classifier.
-
-Text: {input_text}
-
-Classify into ONE category: {labels}
-
-RULES:
-1. Output ONLY the category name
-2. No explanation
-3. No punctuation
-
-Category:
-"""
-```
-
-### Model Prompt Formatting
-
-Edit `backend/app/utils/prompt_formatter.py`:
-
-```python
-# Add new model family
-"custom-model": """<|system|>
-You are a helpful assistant.
-<|user|>
-{prompt}
-<|assistant|>"""
-```
-
-### Custom Metrics
-
-Add to `backend/app/utils/task_evaluators.py`:
-
-```python
-class CustomEvaluator:
-    def evaluate(self, candidates, references):
-        # Your custom metric
-        scores = [self.custom_metric(c, r) 
-                  for c, r in zip(candidates, references)]
-        return {"custom_score": np.mean(scores)}
-```
+- `backend/app/utils/task_prompt_builder.py` - Task-specific prompts
+- `backend/app/utils/prompt_formatter.py` - Model prompt formatting
+- `backend/app/utils/task_evaluators.py` - Custom evaluation metrics
 
 ---
 
 ##  Troubleshooting
 
-### LLM Judge Not Showing
+### Common Issues
 
-**Symptoms:**
-```
- LLM Judge: DISABLED 
-```
+**Generation stuck or taking too long:**
+- Check Celery worker logs: `docker-compose logs celery-worker`
+- Verify workers are running: `docker-compose ps`
 
-**Solution:**
-1. Check checkbox is enabled in UI before clicking "Run Evaluation"
-2. Verify API key: `docker-compose exec backend env | grep GROQ_API_KEY`
-3. Check backend logs: `docker-compose logs backend | grep Judge`
-4. Ensure model name is correct (not `gpt-oss-120b`)
+**LLM Judge not showing:**
+- Ensure checkbox is enabled before running evaluation
+- Verify GROQ_API_KEY is set in `.env`
 
----
+**Database connection errors:**
+- Check Postgres is running: `docker-compose ps postgres`
+- Restart services: `docker-compose restart`
 
-### Model Not Found Error
-
-**Symptoms:**
-```
- Model file not found: /models/qwen2.5-3b-INT4.gguf
-```
-
-**Solution:**
-1. Download GGUF model from Hugging Face
-2. Place in `backend/models/` directory
-3. Update `model_path` when creating variant
-4. Restart backend: `docker-compose restart backend`
-
----
-
-### Generation Stuck
-
-**Symptoms:**
-- Status shows "generating" for >5 minutes
-- No progress in logs
-
-**Solution:**
-```bash
-# Check Celery worker is running
-docker-compose ps
-
-# View worker logs
-docker-compose logs celery-worker
-
-# Restart worker
-docker-compose restart celery-worker
-
-# Check task status
-docker-compose exec backend python
->>> from app.tasks.celery_app import celery_app
->>> celery_app.control.inspect().active()
-```
-
----
-
-### High Memory Usage
-
-**Symptoms:**
-- System becomes slow during generation
-- Docker crashes with OOM
-
-**Solution:**
-```yaml
-# docker-compose.yml
-services:
-  celery-worker:
-    deploy:
-      resources:
-        limits:
-          memory: 8G  # Adjust based on model size
-```
-
-**Model size requirements:**
-- 3B INT4: 2-3 GB RAM
-- 7B INT4: 4-5 GB RAM
-- 13B INT4: 8-10 GB RAM
-
----
-
-### Evaluation Takes Too Long
-
-**Symptoms:**
-- Evaluation runs >10 minutes
-- LLM judge causes timeouts
-
-**Solution:**
-1. **Disable LLM judge** if not needed
-2. **Reduce sample percentage:**
-   ```python
-   # Evaluate only 5% with judge
-   experiment.judge_sample_percentage = 5.0
-   ```
-3. **Use smaller baseline model:**
-   ```python
-   "llama-3.1-8b-instant"  # Instead of 70B
-   ```
-
----
-
-### Database Connection Errors
-
-**Symptoms:**
-```
-sqlalchemy.exc.OperationalError: connection refused
-```
-
-**Solution:**
-```bash
-# Check Postgres is running
-docker-compose ps postgres
-
-# View Postgres logs
-docker-compose logs postgres
-
-# Recreate database
-docker-compose down -v
-docker-compose up -d postgres
-docker-compose exec backend alembic upgrade head
-```
-
----
-
-### Frontend Can't Connect to Backend
-
-**Symptoms:**
-```
-Failed to fetch experiments
-```
-
-**Solution:**
-1. Check backend is running: `curl http://localhost:8000/health`
-2. Verify CORS settings in `backend/app/main.py`
-3. Check network in Docker: `docker-compose exec frontend ping backend`
-4. Ensure API_BASE_URL is correct in `frontend/src/services/api.ts`
+**Frontend can't connect:**
+- Verify backend is running: `curl http://localhost:8000/health`
+- Check API_BASE_URL in frontend configuration
 
 ---
 
 ##  API Reference
 
-### Core Endpoints
+The platform exposes a REST API for experiment management, model configuration, and evaluation. Key endpoints:
 
-#### Create Experiment
-```http
-POST /experiments/
-Content-Type: application/json
-
-{
-  "name": "Sentiment Analysis Test",
-  "baseline_model_id": 1,
-  "has_ground_truth": true
-}
-```
-
-#### Upload Dataset
-```http
-POST /experiments/{id}/samples
-Content-Type: application/json
-
-{
-  "samples": [...],
-  "task_type": "classification"
-}
-```
-
-#### Add Model Variant
-```http
-POST /experiments/{id}/variants
-Content-Type: application/json
-
-{
-  "variant_type": "quantized",
-  "model_name": "qwen2.5-3b",
-  "quantization_level": "INT4",
-  "model_path": "/models/qwen2.5-3b-INT4.gguf",
-  "inference_provider": "llama.cpp"
-}
-```
-
-#### Generate Outputs
-```http
-POST /experiments/{id}/generate
-```
-
-#### Run Evaluation
-```http
-POST /experiments/{id}/evaluate?enable_llm_judge=true
-```
-
-#### Get Results
-```http
-GET /experiments/{id}/metrics
-GET /experiments/{id}/samples/comparison?page=1&page_size=20
-```
-
-### Model Recommendations
-```http
-GET /experiments/models/recommendations/{task_type}
-
-Response:
-{
-  "model_name": "llama-3.3-70b",
-  "display_name": "Llama 3.3 70B",
-  "reason": "Best for reasoning tasks",
-  "provider": "groq"
-}
-```
-
----
-
-##  Contributing
-
-### Development Setup
-
-```bash
-# 1. Fork and clone
-git clone https://github.com/yourusername/quantease.git
-cd quantease
-
-# 2. Create feature branch
-git checkout -b feature/amazing-feature
-
-# 3. Install pre-commit hooks
-pip install pre-commit
-pre-commit install
-
-# 4. Make changes and test
-pytest backend/tests
-npm test --prefix frontend
-
-# 5. Submit PR
-git push origin feature/amazing-feature
-```
-
-### Code Style
-
-**Backend:**
-- Follow PEP 8
-- Type hints required
-- Docstrings for public functions
-
-**Frontend:**
-- ESLint + Prettier
-- TypeScript strict mode
-- Functional components with hooks
-
-### Testing
-
-**Backend:**
-```bash
-# Unit tests
-pytest backend/tests/unit
-
-# Integration tests
-pytest backend/tests/integration
-
-# Coverage
-pytest --cov=app backend/tests
-```
-
-**Frontend:**
-```bash
-# Component tests
-npm test
-
-# E2E tests
-npm run test:e2e
-```
+- `POST /experiments/` - Create new experiment
+- `POST /experiments/{id}/samples` - Upload dataset
+- `POST /experiments/{id}/variants` - Add model variants
+- `POST /experiments/{id}/generate` - Start generation
+- `POST /experiments/{id}/evaluate` - Run evaluation
+- `GET /experiments/{id}/metrics` - Get evaluation results
+- `GET /experiments/models/quantized` - List available quantized models
 
 ---
 
 ##  Roadmap
 
-### v1.1 (Next Release)
-- [ ] Multi-GPU support for large models
-- [ ] Batch processing for >1000 samples
+### Short-term Goals
+
+**Fair Speed Comparisons**
+- [ ] Move quantized models to cloud inference for fair speed comparisons
+- [ ] Enable true baseline vs quantized speed benchmarking (cloud vs cloud)
+
+**Expanded Model Support**
+- [ ] Add support for other quantized model formats beyond GGUF (TensorRT, ONNX, etc.)
+- [ ] Integration with multiple quantization frameworks
+
+**Enhanced Task Categorization**
+- [ ] Add granular subcategories within existing task types
+- [ ] Specialized metrics and evaluation criteria for each subcategory
+  - Text Generation: Summarization, Translation, Creative Writing, Code Generation
+  - Classification: Sentiment Analysis, Topic Classification, Intent Detection, Entity Recognition
+  - RAG: Document Q&A, Knowledge Base Querying, Conversational AI
+
+**Dataset Features**
+- [ ] Preloaded datasets for common use cases (no need to bring your own)
+- [ ] Dataset generator: Create datasets using simple prompts
+- [ ] Dataset templates and examples for each task type
+
+### Future Considerations
 - [ ] Export evaluation reports (PDF/CSV)
-- [ ] Model hub integration (auto-download from HF)
-
-### v1.2
-- [ ] Fine-tuning evaluation mode
-- [ ] Cost calculator (cloud vs local)
-- [ ] A/B testing mode (production traffic)
-- [ ] More metrics (ROUGE, BLEU, Perplexity)
-
-### Future
-- [ ] Auto-quantization optimizer
-- [ ] Multi-user support with auth
-- [ ] Scheduled evaluations
-- [ ] Webhook notifications
+- [ ] Cost calculator (baseline vs quantized)
+- [ ] More advanced metrics and evaluation methods
 
 ---
 
@@ -763,19 +452,8 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
-##  Support
-
-- **Issues:** [GitHub Issues](https://github.com/yourusername/quantease/issues)
-- **Discussions:** [GitHub Discussions](https://github.com/yourusername/quantease/discussions)
-- **Email:** support@quantease.dev
-- **Discord:** [Join our community](https://discord.gg/quantease)
-
----
-
 ##  Acknowledgments
 
-- [llama.cpp](https://github.com/ggerganov/llama.cpp) - Fast GGUF inference
-- [Groq](https://groq.com) - Lightning-fast LLM API
 - [BERTScore](https://github.com/Tiiiger/bert_score) - Semantic similarity metric
 - [FastAPI](https://fastapi.tiangolo.com/) - Modern Python web framework
 

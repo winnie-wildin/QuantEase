@@ -116,4 +116,14 @@ export const api = {
     );
     if (!response.ok) throw new Error('Failed to trigger evaluation');
   },
+
+  cancelGeneration: async (experimentId: number): Promise<void> => {
+    const response = await fetch(
+      `${API_BASE_URL}/experiments/${experimentId}/cancel-generation`,
+      {
+        method: 'POST',
+      }
+    );
+    if (!response.ok) throw new Error('Failed to cancel generation');
+  },
 };

@@ -53,14 +53,14 @@ def generate_baseline_outputs(self, experiment_id: int, variant_id: int):
         # Filter stop sequences - only send thinking tags to API, not format tokens
         # stop_sequences = [s for s in stop_sequences_raw if '<' not in s or 'think' in s.lower()] if stop_sequences_raw else None
         stop_sequences = None        
-        print(f"\n{'='*60}")
-        print(f"🚀 Starting baseline generation")
-        print(f"📋 Model: {variant.model_name}")
+        print(f"\n{'='*60}", flush=True)
+        print(f"🚀 Starting baseline generation", flush=True)
+        print(f"📋 Model: {variant.model_name}", flush=True)
         if system_message:
-            print(f"💬 System message: {system_message[:80]}...")
+            print(f"💬 System message: {system_message[:80]}...", flush=True)
         if stop_sequences:
-            print(f"🛑 Stop sequences: {stop_sequences}")
-        print(f"{'='*60}\n")
+            print(f"🛑 Stop sequences: {stop_sequences}", flush=True)
+        print(f"{'='*60}\n", flush=True)
         
         # Update variant status
         variant.status = "generating"
@@ -73,9 +73,24 @@ def generate_baseline_outputs(self, experiment_id: int, variant_id: int):
         
         # Generate output for each sample
         for i, sample in enumerate(samples):
+            # Check if task has been cancelled (check variant status in DB)
+            db.refresh(variant)
+            if variant.status == "cancelled":
+                print(f"\n🛑 Generation cancelled by user. Stopping at sample {i+1}/{total_samples}", flush=True)
+                variant.progress = i / total_samples
+                db.commit()
+                return {
+                    "status": "cancelled",
+                    "experiment_id": experiment_id,
+                    "variant_id": variant_id,
+                    "samples_processed": i,
+                    "total_samples": total_samples,
+                    "message": "Generation cancelled by user"
+                }
+            
             try:
-                print(f"\n📝 Sample {i+1}/{total_samples} (ID: {sample.id})")
-                print(f"📥 Input: {sample.input_text[:100]}...")
+                print(f"\n📝 Sample {i+1}/{total_samples} (ID: {sample.id})", flush=True)
+                print(f"📥 Input: {sample.input_text[:100]}...", flush=True)
                 
                 # Build messages with optional system message
                 # Build task-specific prompt
@@ -94,7 +109,7 @@ def generate_baseline_outputs(self, experiment_id: int, variant_id: int):
                                     input_text=sample.input_text,
                                     labels=labels
                                 )
-                                print(f"🏷️  Using classification prompt with labels: {labels}")
+                                print(f"🏷️  Using classification prompt with labels: {labels}", flush=True)
                         
                         elif experiment.task_type == "rag":
                             task_prompt = TaskPromptBuilder.build(
@@ -102,7 +117,7 @@ def generate_baseline_outputs(self, experiment_id: int, variant_id: int):
                                 input_text=sample.input_text,
                                 context=sample.context or ""
                             )
-                            print(f"🔍 Using RAG prompt with context")
+                            print(f"🔍 Using RAG prompt with context", flush=True)
                         
                         elif experiment.task_type == "text_generation":
                             task_prompt = TaskPromptBuilder.build(
@@ -110,7 +125,7 @@ def generate_baseline_outputs(self, experiment_id: int, variant_id: int):
                                 input_text=sample.input_text
                             )
                     except Exception as e:
-                        print(f"⚠️  Task prompt building failed, using raw input: {e}")
+                        print(f"⚠️  Task prompt building failed, using raw input: {e}", flush=True)
                         task_prompt = sample.input_text
                 
                 # Build messages with optional system message
@@ -150,7 +165,7 @@ def generate_baseline_outputs(self, experiment_id: int, variant_id: int):
                 # Clean output: Remove thinking tags if present (for Qwen)
                 original_length = len(output_text)
                 if '<think>' in output_text:
-                    print(f"⚠️  Detected <think> tags in output, cleaning...")
+                    print(f"⚠️  Detected <think> tags in output, cleaning...", flush=True)
                     parts = output_text.split('</think>')
                     output_text = parts[-1].strip() if len(parts) > 1 else output_text.split('<think>')[0].strip()
 
@@ -171,18 +186,18 @@ def generate_baseline_outputs(self, experiment_id: int, variant_id: int):
                     if experiment.task_type == 'text_generation' and sample.context:
                         error_msg += "\n⚠️ HINT: You have a 'context' field but task_type is 'text_generation'. This is a RAG dataset!"
                     
-                    print(f"❌ {error_msg}")
+                    print(f"❌ {error_msg}", flush=True)
                     raise ValueError(error_msg)
 
-                print(f"📤 Output: {output_text[:150]}...")
+                print(f"📤 Output: {output_text[:150]}...", flush=True)
                 
                 # Calculate metrics
                 latency_ms = (t1 - t0) * 1000.0
                 token_count = len(output_text.split())
                 tokens_per_second = token_count / max((t1 - t0), 1e-6)
                 
-                print(f"⏱️  Latency: {latency_ms:.0f}ms")
-                print(f"🚀 Speed: {tokens_per_second:.1f} tok/s")
+                print(f"⏱️  Latency: {latency_ms:.0f}ms", flush=True)
+                print(f"🚀 Speed: {tokens_per_second:.1f} tok/s", flush=True)
 
                 # Create GeneratedOutput record
                 output = GeneratedOutput(
@@ -209,6 +224,7 @@ def generate_baseline_outputs(self, experiment_id: int, variant_id: int):
                 progress = (i + 1) / total_samples
                 variant.progress = progress
                 db.commit()
+                db.refresh(variant)  # Ensure state is current
                 
                 # Update task state for real-time tracking
                 self.update_state(
@@ -222,10 +238,11 @@ def generate_baseline_outputs(self, experiment_id: int, variant_id: int):
                     }
                 )
                 
-                print(f"✅ Generated output {i+1}/{total_samples} for sample {sample.id}")
+                progress_pct = progress * 100
+                print(f"✅ Generated output {i+1}/{total_samples} for sample {sample.id} | Progress: {progress_pct:.1f}%", flush=True)
                 
             except Exception as e:
-                print(f"❌ Error generating output for sample {sample.id}: {e}")
+                print(f"❌ Error generating output for sample {sample.id}: {e}", flush=True)
                 import traceback
                 traceback.print_exc()
                 
@@ -248,15 +265,15 @@ def generate_baseline_outputs(self, experiment_id: int, variant_id: int):
         # Update final status
         if failed_count == 0:
             variant.status = "completed"
-            print(f"\n🎉 All {successful_count} samples generated successfully!")
+            print(f"\n🎉 All {successful_count} samples generated successfully!", flush=True)
         elif successful_count > 0:
             variant.status = "completed"
             variant.error_message = f"{failed_count} samples failed"
-            print(f"\n⚠️  Completed with {failed_count} failures")
+            print(f"\n⚠️  Completed with {failed_count} failures", flush=True)
         else:
             variant.status = "failed"
             variant.error_message = "All samples failed to generate"
-            print(f"\n❌ All samples failed!")
+            print(f"\n❌ All samples failed!", flush=True)
         
         variant.progress = 1.0
         db.commit()
@@ -271,7 +288,7 @@ def generate_baseline_outputs(self, experiment_id: int, variant_id: int):
             "message": f"Generated {successful_count}/{total_samples} outputs successfully"
         }
         
-        print(f"\n🎉 Baseline generation complete: {result['message']}\n")
+        print(f"\n🎉 Baseline generation complete: {result['message']}\n", flush=True)
         return result
         
     except Exception as e:
@@ -281,7 +298,7 @@ def generate_baseline_outputs(self, experiment_id: int, variant_id: int):
             variant.error_message = str(e)
             db.commit()
         
-        print(f"❌ Fatal error in baseline generation: {e}")
+        print(f"❌ Fatal error in baseline generation: {e}", flush=True)
         import traceback
         traceback.print_exc()
         raise

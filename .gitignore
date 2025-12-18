@@ -71,6 +71,8 @@ backend/data/models/quantized/*.bin
 backend/data/models/quantized/*.safetensors
 
 # User uploaded files
+text-gen-inputs-only.json
+classifcation.json
 backend/data/uploads/*
 !backend/data/uploads/.gitkeep
 
@@ -121,5 +123,5 @@ alembic/versions/__pycache__/
 # Keep empty directories with .gitkeep files
 !**/.gitkeep
 
-
+parallel_running.md
 backend/data/models/quantized/*.gguf

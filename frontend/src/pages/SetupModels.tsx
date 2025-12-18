@@ -13,6 +13,7 @@ interface ModelOption {
   quality?: string;
   size_mb?: number;
   filename?: string;
+  quantization?: string;
 }
 
 export const SetupModels: React.FC = () => {
@@ -21,6 +22,7 @@ export const SetupModels: React.FC = () => {
   const experimentId = parseInt(id || '0');
 
   const [loading, setLoading] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
   const [loadingModels, setLoadingModels] = useState(true);
   const [hasGroundTruth, setHasGroundTruth] = useState(false);
   const [baselineModels, setBaselineModels] = useState<ModelOption[]>([]);
@@ -28,6 +30,15 @@ export const SetupModels: React.FC = () => {
   
   const [selectedBaseline, setSelectedBaseline] = useState<string | null>('llama-3.3-70b-versatile');
   const [selectedQuantized, setSelectedQuantized] = useState<string[]>([]);
+  
+  // Real-time generation progress state
+  const [generationProgress, setGenerationProgress] = useState<{
+    overall: number;
+    variants: Array<{ name: string; progress: number; completed: number; total: number }>;
+    allCompleted: boolean;
+    totalCompleted: number;
+    totalSamples: number;
+  } | null>(null);
 
   // Load experiment details and available models
   useEffect(() => {
@@ -37,6 +48,12 @@ export const SetupModels: React.FC = () => {
         const expRes = await fetch(`http://localhost:8000/experiments/${experimentId}`);
         const expData = await expRes.json();
         setHasGroundTruth(expData.has_ground_truth);
+        
+        // ✅ FIX: If experiment is already generating or completed, redirect immediately
+        if (expData.status === 'generating' || expData.status === 'completed') {
+          navigate(`/experiment/${experimentId}`, { replace: true });
+          return;
+        }
         
         const [baselineRes, quantizedRes] = await Promise.all([
           fetch('http://localhost:8000/experiments/models/baseline'),
@@ -63,6 +80,77 @@ export const SetupModels: React.FC = () => {
     loadModels();
   }, [experimentId]);
 
+  // Poll for generation progress when loading (generation in progress)
+  useEffect(() => {
+    if (!loading) return;
+
+    let intervalId: number | null = null;
+    let isNavigatingAway = false;
+    
+    const fetchProgress = async () => {
+      // Don't fetch if we're already navigating away
+      if (isNavigatingAway) return;
+      
+      try {
+        const response = await fetch(
+          `http://localhost:8000/experiments/${experimentId}/generation-status?t=${Date.now()}`
+        );
+        
+        if (!response.ok) return;
+        
+        const data = await response.json();
+        
+        // Get progress from the first variant (they all process the same samples)
+        // This shows sample-level progress: "1/14, 2/14, 3/14" etc.
+        const firstVariant = data.variants.length > 0 ? data.variants[0] : null;
+        const totalCompleted = firstVariant?.completed_samples || 0;
+        const totalSamples = firstVariant?.total_samples || 0;
+        
+        // Calculate overall progress (0.0 to 1.0) based on actual sample count
+        const overallProgress = totalSamples > 0 ? totalCompleted / totalSamples : 0;
+        
+        setGenerationProgress({
+          overall: overallProgress,
+          variants: data.variants.map((v: any) => ({
+            name: v.model_name,
+            progress: v.progress || 0,
+            completed: v.completed_samples || 0,
+            total: v.total_samples || 0
+          })),
+          allCompleted: data.all_completed,
+          totalCompleted: totalCompleted,
+          totalSamples: totalSamples
+        });
+
+        // If all completed, navigate away after a short delay
+        if (data.all_completed && !isNavigatingAway) {
+          isNavigatingAway = true;
+          if (intervalId) {
+            clearInterval(intervalId);
+            intervalId = null;
+          }
+          setTimeout(() => {
+            setLoading(false);
+            setIsNavigating(true);
+            navigate(`/experiment/${experimentId}`, { replace: true });
+          }, 1000);
+        }
+      } catch (err) {
+        console.error('Error fetching progress:', err);
+      }
+    };
+
+    // Start polling immediately, then every 1 second
+    fetchProgress();
+    intervalId = setInterval(fetchProgress, 1000);
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [loading, experimentId, navigate]);
+
   // Validation: Check if selection is valid
   const isValid = () => {
     if (hasGroundTruth) {
@@ -74,8 +162,11 @@ export const SetupModels: React.FC = () => {
     }
   };
   
-  const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("🔍 DEBUG: experimentId =", experimentId);
+    console.log("🔍 DEBUG: selectedBaseline =", selectedBaseline);
+    console.log("🔍 DEBUG: selectedQuantized =", selectedQuantized);
     
     if (!isValid()) {
       toast.error('Please select required models');
@@ -105,7 +196,7 @@ export const SetupModels: React.FC = () => {
             await api.createVariant(experimentId, {
               variant_type: 'quantized',
               model_name: quantId,
-              quantization_level: 'INT4',
+              quantization_level: quantModel.quantization || 'INT4',
               model_path: `data/models/quantized/${quantModel.filename}`,
               inference_provider: 'gguf',
             });
@@ -118,16 +209,12 @@ export const SetupModels: React.FC = () => {
       // Trigger generation
       await api.triggerGeneration(experimentId);
 
-      toast.success('✅ Generation started! Redirecting...', { id: toastId });
-      
-      setTimeout(() => {
-        navigate(`/experiment/${experimentId}`);
-      }, 1000);
+      // Keep modal visible and start polling for progress
+      // Don't navigate away - show progress in the modal
 
     } catch (error) {
       console.error('Failed:', error);
       toast.error('❌ Failed to start generation: ' + error, { id: toastId });
-    } finally {
       setLoading(false);
     }
   };
@@ -326,6 +413,11 @@ export const SetupModels: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex flex-col items-end space-y-1">
+                    {model.quantization && (
+                      <span className="text-xs bg-teal-100 text-teal-700 px-2 py-1 rounded whitespace-nowrap font-semibold">
+                        {model.quantization}
+                      </span>
+                    )}
                     <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded whitespace-nowrap">
                       {model.speed}
                     </span>
@@ -430,21 +522,38 @@ export const SetupModels: React.FC = () => {
         </div>
       </form>
 
-      {/* Loading Overlay */}
-      {loading && (
+      {/* Loading Overlay - hide if navigating */}
+      {loading && !isNavigating && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-4">
-            <div className="text-center">
+            <div className="text-center" key={`progress-${generationProgress?.totalCompleted || 0}`}>
               <Loader2 className="w-12 h-12 animate-spin text-primary-600 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 Setting Up Experiment
               </h3>
-              <p className="text-sm text-gray-600">
-                Creating variants and starting generation...
+              <p className="text-sm text-gray-600 mb-4">
+                {generationProgress 
+                  ? `Generating outputs... ${generationProgress.totalCompleted}/${generationProgress.totalSamples} samples`
+                  : 'Creating variants and starting generation...'
+                }
               </p>
-              <div className="mt-4 w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-primary-600 h-2 rounded-full animate-pulse" style={{ width: '60%' }} />
+              
+              {/* Real-time progress bar */}
+              <div className="mt-4 w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                <div 
+                  className="bg-primary-600 h-2 rounded-full transition-all duration-500 ease-out" 
+                  style={{ 
+                    width: `${Math.max(0, Math.min(100, (generationProgress?.overall || 0) * 100))}%` 
+                  }} 
+                />
               </div>
+              
+              {/* Show percentage and sample count */}
+              {generationProgress && (
+                <p className="text-xs text-gray-500 mt-2">
+                  {generationProgress.totalCompleted}/{generationProgress.totalSamples} samples • {Math.round(generationProgress.overall * 100)}% complete
+                </p>
+              )}
             </div>
           </div>
         </div>
